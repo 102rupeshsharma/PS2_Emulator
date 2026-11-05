@@ -105,7 +105,7 @@ Fill in Result (✅/❌ + notes). Use the release APK unless you need logcat (de
 | C2 | Phone Bluetooth on, laptop Bluetooth on | Dashboard: Bluetooth enabled | ⏳ |
 | C3 | **Connection → Register HID Device** (critical) | Log: proxy connected, `registered=true`; "HID registration successful" | ✅ 2026-11-05, POCO F6 (24069PC21I), Android 16 / API 36, build BP3A.250905.014 (user screenshot) |
 | C4 | Make discoverable; pair from Windows (remove old pairings first) | Paired | ⏳ |
-| C5 | Gamepad recognised | App "Connected to <laptop>"; joy.cpl lists the device | ❌ first attempt: connect() -> DISCONNECTED after ~4.5 s. Laptop was paired before HID registration; retest after removing and re-pairing ⏳ |
+| C5 | Gamepad recognised | App "Connected to <laptop>"; joy.cpl lists the device | ✅ app shows Connected to RUPESH after a clean re-pair (user, 2026-11-05, v1.1.0); joy.cpl not yet confirmed. First attempt failed because the old pairing pre-dated HID registration |
 | C6 | Disconnect, then Reconnect | Disconnected, then Connected; no re-pairing | ⏳ |
 | C7 | Restart the phone, open the app, register, Reconnect | Connected | ⏳ |
 | C8 | Restart the laptop, then register/reconnect from the phone | Connected | ⏳ |

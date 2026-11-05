@@ -1,0 +1,221 @@
+package com.ps2gamepad
+
+import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performTextInput
+import com.ps2gamepad.model.BluetoothState
+import com.ps2gamepad.model.ControlId
+import com.ps2gamepad.model.ControllerSkin
+import com.ps2gamepad.model.DiagnosticLog
+import com.ps2gamepad.model.Placement
+import com.ps2gamepad.settings.DefaultProfiles
+import com.ps2gamepad.settings.InMemoryTextStorage
+import com.ps2gamepad.settings.ProfileManager
+import com.ps2gamepad.settings.SettingsRepository
+import com.ps2gamepad.ui.App
+import com.ps2gamepad.ui.AppActions
+import com.ps2gamepad.ui.MainViewModel
+import com.ps2gamepad.ui.Screen
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.runCurrent
+import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.test.setMain
+import org.junit.After
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertTrue
+import org.junit.Before
+import org.junit.Rule
+import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
+
+class LoadoutLimitTest {
+    private var n = 0
+    private val ids = { "l${n++}" }
+
+    @Test fun builtInsDoNotCountAndTheLimitIsFive() {
+        var s = DefaultProfiles.store()
+        assertEquals(0, ProfileManager.loadouts(s).size)
+        repeat(5) { i -> s = ProfileManager.createFrom(s, "Game $i", s.activeId, ids) }
+        assertEquals(5, ProfileManager.loadouts(s).size)
+        assertFalse(ProfileManager.canCreateLoadout(s))
+        // every way of adding one more is refused
+        assertEquals(s, ProfileManager.createFrom(s, "Sixth", s.activeId, ids))
+        assertEquals(s, ProfileManager.create(s, "Sixth", ids))
+        assertEquals(s, ProfileManager.duplicate(s, s.activeId, ids))
+        // deleting one frees a slot
+        val freed = ProfileManager.delete(s, ProfileManager.loadouts(s).first().id)
+        assertTrue(ProfileManager.canCreateLoadout(freed))
+    }
+
+    @Test fun loadoutMayShareANameWithABuiltInPresetButNotWithAnotherLoadout() {
+        var s = ProfileManager.createFrom(DefaultProfiles.store(), "God of War", DefaultProfiles.STANDARD, ids)
+        assertEquals("God of War", s.active.name)
+        s = ProfileManager.createFrom(s, "god of war", DefaultProfiles.STANDARD, ids)
+        assertEquals("god of war 2", s.active.name)
+    }
+
+    @Test fun newLoadoutCopiesTheTemplateSetup() {
+        var s = ProfileManager.updateActive(DefaultProfiles.store()) {
+            it.copy(appearance = it.appearance.copy(skin = ControllerSkin.NEON, buttonScale = 1.2f),
+                placements = mapOf(ControlId.L1 to Placement(0.3f, 0.3f)), gyro = it.gyro.copy(enabled = true))
+        }
+        s = ProfileManager.createFrom(s, "GTA", s.activeId, ids)
+        val p = s.active
+        assertEquals("GTA", p.name)
+        assertFalse(p.builtIn)
+        assertEquals(ControllerSkin.NEON, p.appearance.skin)
+        assertEquals(1.2f, p.appearance.buttonScale)
+        assertEquals(Placement(0.3f, 0.3f), p.placements[ControlId.L1])
+        assertTrue(p.gyro.enabled)
+    }
+}
+
+@OptIn(ExperimentalCoroutinesApi::class)
+class LoadoutViewModelTest {
+    private val dispatcher = StandardTestDispatcher()
+    private val disk = InMemoryTextStorage()
+    private var n = 0
+    @Before fun setUp() = Dispatchers.setMain(dispatcher)
+    @After fun tearDown() = Dispatchers.resetMain()
+
+    private fun kotlinx.coroutines.test.TestScope.newVm(): MainViewModel {
+        val repo = SettingsRepository(disk, this, debounceMs = 10)
+        return MainViewModel(FakeHid(), MutableStateFlow(BluetoothState.ENABLED), { emptyList() }, DiagnosticLog(), emptyList(), { 0L },
+            settingsRepository = repo, newId = { "id${n++}" })
+    }
+
+    @Test fun openControllerAsksForALoadout() = runTest(dispatcher) {
+        val vm = newVm(); runCurrent()
+        vm.openController()
+        assertEquals(Screen.LOADOUTS, vm.screen.value)
+        vm.playLoadout(DefaultProfiles.STANDARD)
+        assertEquals(Screen.CONTROLLER, vm.screen.value)
+        assertEquals(DefaultProfiles.STANDARD, vm.profiles.value.activeId)
+    }
+
+    @Test fun createOpensEditModeOnTheNewLoadout() = runTest(dispatcher) {
+        val vm = newVm(); runCurrent()
+        assertTrue(vm.createLoadout("God of War"))
+        assertEquals("God of War", vm.profiles.value.active.name)
+        assertEquals(Screen.CONTROLLER, vm.screen.value)
+        assertTrue(vm.editMode.value)
+    }
+
+    @Test fun eachLoadoutKeepsItsOwnLayoutAndSettingsAcrossRestart() = runTest(dispatcher) {
+        val vm = newVm(); runCurrent()
+        vm.createLoadout("GTA"); val gta = vm.profiles.value.activeId
+        vm.savePlacements(mapOf(ControlId.FACE to Placement(0.6f, 0.4f, 1.3f)))
+        vm.updateAppearance { it.copy(skin = ControllerSkin.XBOX_STYLE) }
+        vm.updateGyro { it.copy(enabled = true) }
+
+        vm.createLoadout("NFS"); val nfs = vm.profiles.value.activeId
+        vm.resetLayout()
+        vm.updateAppearance { it.copy(skin = ControllerSkin.RETRO, controlOpacity = mapOf(ControlId.DPAD to 0.4f)) }
+        vm.updateGyro { it.copy(enabled = false) }
+        assertNotEquals(gta, nfs)
+
+        vm.playLoadout(gta)
+        val g = vm.profiles.value.active
+        assertEquals(Placement(0.6f, 0.4f, 1.3f), g.placements[ControlId.FACE])
+        assertEquals(ControllerSkin.XBOX_STYLE, g.appearance.skin)
+        assertTrue(g.gyro.enabled)
+
+        vm.flushSettings(); advanceUntilIdle()
+        // "restart": a brand-new ViewModel reading the same storage
+        val vm2 = newVm(); advanceUntilIdle()
+        assertEquals(2, vm2.loadouts.size)
+        vm2.playLoadout(nfs)
+        val nf = vm2.profiles.value.active
+        assertEquals("NFS", nf.name)
+        assertEquals(ControllerSkin.RETRO, nf.appearance.skin)
+        assertTrue(nf.placements.isEmpty())
+        assertEquals(0.4f, nf.appearance.opacityOf(ControlId.DPAD))
+    }
+
+    @Test fun sixthLoadoutIsRefusedWithAMessage() = runTest(dispatcher) {
+        val vm = newVm(); runCurrent()
+        repeat(5) { assertTrue(vm.createLoadout("G$it")) }
+        assertFalse(vm.canCreateLoadout)
+        val screenBefore = vm.screen.value
+        assertFalse(vm.createLoadout("G6"))
+        assertEquals(5, vm.loadouts.size)
+        assertEquals(screenBefore, vm.screen.value)
+        assertTrue(vm.log.lines.value.last().contains("5 loadouts"))
+        vm.deleteLoadout(vm.loadouts.first().id)
+        assertTrue(vm.canCreateLoadout)
+    }
+}
+
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [34], qualifiers = "w891dp-h411dp-land")
+class LoadoutUiTest {
+    @get:Rule val rule = createComposeRule()
+    private lateinit var vm: MainViewModel
+    private var n = 0
+
+    @Before fun setUp() {
+        vm = MainViewModel(FakeHid(), MutableStateFlow(BluetoothState.ENABLED), { emptyList() }, DiagnosticLog(), emptyList(), { 0L }, newId = { "u${n++}" })
+        rule.setContent { App(vm, AppActions({}, {}, {}, {})) }
+        rule.runOnIdle { vm.openController() }
+    }
+
+    @Test fun pickerShowsDefaultAndNewCard() {
+        rule.onNodeWithText("Choose a loadout").assertIsDisplayed()
+        rule.onNodeWithText("0 / 5 loadouts").assertIsDisplayed()
+        rule.onNodeWithTag("loadout_standard").assertIsDisplayed()
+        rule.onNodeWithTag("newLoadoutCard").assertIsDisplayed()
+    }
+
+    @Test fun createFromThePickerThenPlayFromThePicker() {
+        rule.onNodeWithTag("newLoadoutName").performTextInput("God of War")
+        rule.onNodeWithText("Create & arrange buttons").performClick()
+        rule.waitForIdle()
+        rule.runOnIdle {
+            assertEquals(Screen.CONTROLLER, vm.screen.value)
+            assertTrue(vm.editMode.value)
+            assertEquals("God of War", vm.profiles.value.active.name)
+        }
+        rule.onNodeWithText("EDIT LAYOUT").assertIsDisplayed()
+        rule.onNodeWithTag("chip_Save").performClick()
+        rule.runOnIdle { vm.openController() }
+        rule.onNodeWithText("1 / 5 loadouts").assertIsDisplayed()
+        rule.onNodeWithText("LAST USED").assertIsDisplayed()
+        rule.onNodeWithTag("play_standard").performClick()
+        rule.runOnIdle {
+            assertEquals(DefaultProfiles.STANDARD, vm.profiles.value.activeId)
+            assertEquals(Screen.CONTROLLER, vm.screen.value)
+        }
+    }
+
+    @Test fun deleteNeedsConfirmation() {
+        rule.runOnIdle { vm.createLoadout("Temp"); vm.openController() }
+        val id = vm.loadouts.first().id
+        rule.onNodeWithTag("delete_$id").performClick()
+        rule.onNodeWithText("Delete loadout \"Temp\"?").assertIsDisplayed()
+        rule.onNodeWithTag("confirmDeleteLoadout").performClick()
+        rule.waitForIdle()
+        rule.runOnIdle { assertTrue(vm.loadouts.isEmpty()) }
+        rule.onNodeWithTag("loadout_$id").assertDoesNotExist()
+    }
+
+    @Test fun newCardDisappearsAtTheLimit() {
+        rule.runOnIdle { repeat(5) { vm.createLoadout("Game $it") }; vm.openController() }
+        rule.onNodeWithText("5 / 5 loadouts").assertIsDisplayed()
+        rule.onNodeWithTag("newLoadoutCard").assertDoesNotExist()
+    }
+
+    @Suppress("unused") private fun scroll(tag: String) = rule.onNodeWithTag(tag).performScrollTo()
+}

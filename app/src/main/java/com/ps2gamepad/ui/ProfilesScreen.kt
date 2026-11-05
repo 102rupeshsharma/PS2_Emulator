@@ -42,7 +42,8 @@ fun ProfilesScreen(vm: MainViewModel) {
     var dialog by remember { mutableStateOf<ProfileDialog?>(null) }
 
     ScreenFrame("Profiles", onBack = { vm.navigate(Screen.HOME) }, actions = {
-        ActionButton("New profile") { dialog = ProfileDialog.Create }
+        val canCreate = com.ps2gamepad.settings.ProfileManager.canCreateLoadout(store)
+        ActionButton(if (canCreate) "New profile" else "Limit: 5 loadouts", enabled = canCreate) { dialog = ProfileDialog.Create }
     }) {
         Text(
             "Profiles change layout, look and analog response only. Every profile sends the same standard HID buttons, " +
@@ -73,7 +74,7 @@ fun ProfilesScreen(vm: MainViewModel) {
                     }
                     if (!active) ActionButton("Use") { vm.switchProfile(p.id) }
                     ActionButton("Rename", outlined = true) { dialog = ProfileDialog.Rename(p) }
-                    ActionButton("Duplicate", outlined = true) { vm.duplicateProfile(p.id) }
+                    ActionButton("Duplicate", enabled = com.ps2gamepad.settings.ProfileManager.canCreateLoadout(store), outlined = true) { vm.duplicateProfile(p.id) }
                     if (p.builtIn) ActionButton("Restore", outlined = true) { vm.restoreProfileDefaults(p.id) }
                     else ActionButton("Delete", outlined = true) { dialog = ProfileDialog.Delete(p) }
                 }

@@ -1,5 +1,21 @@
 # Release notes
 
+## 1.4.0 (versionCode 8), 2026-11-05: loadouts
+
+- **Loadouts: one saved setup per game, up to 5** (plus the built-in Default). Each loadout keeps
+  its own button positions and sizes, opacity (all and per control), style, stick settings and gyro.
+- **"Choose a loadout" every time you open the controller:** cards with a live preview, "LAST USED"
+  badge, Play, and Delete (with confirmation).
+- **Create:** type a name → *Create & arrange buttons*. It starts as a copy of your current setup and
+  opens the controller in Edit mode; Save stores the layout in that loadout. Changes made later in
+  Customize, Styles or Gyro are saved to the loadout in use.
+- At 5 loadouts the "New loadout" card is hidden, and the Profiles screen's New/Duplicate are disabled
+  ("Limit: 5 loadouts"). Deleting one frees a slot.
+- **Fixed (found by tests):** a loadout named like a built-in preset ("God of War") became "God of War 2".
+  Names now only need to be unique among your loadouts.
+- Built on the existing profile system: same storage, same HID report, no re-pairing.
+- Tests: 256 (254 passed, 2 skipped).
+
 ## 1.3.0 (versionCode 7), 2026-11-05: gyro right stick
 
 - **360° gyroscope right stick.** Phone tilt drives the RIGHT analog stick continuously in every direction.

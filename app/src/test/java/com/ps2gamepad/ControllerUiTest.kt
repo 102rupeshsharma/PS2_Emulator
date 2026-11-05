@@ -75,6 +75,8 @@ class ControllerUiTest {
     private fun openController() {
         rule.onNodeWithTag("dash_controller").performClick()
         rule.waitForIdle()
+        rule.onNodeWithTag("play_standard").performClick() // loadout picker
+        rule.waitForIdle()
     }
 
     private fun bounds(tag: String): Rect = rule.onNodeWithTag(tag, useUnmergedTree = true).fetchSemanticsNode().boundsInRoot

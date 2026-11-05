@@ -205,6 +205,8 @@ class SimpleHomeUiTest {
         rule.runOnIdle { hid.emit(HidEvent.ConnectionChanged(laptop, HidStateReducer.STATE_CONNECTED)) }
         rule.onNodeWithText("Connected to RUPESH ✓").assertIsDisplayed()
         rule.onNodeWithText("Open Controller").performClick()
+        rule.runOnIdle { assertEquals("Open Controller asks for a loadout", Screen.LOADOUTS, vm.screen.value) }
+        rule.onNodeWithTag("play_standard").performClick()
         rule.runOnIdle { assertEquals(Screen.CONTROLLER, vm.screen.value) }
     }
 

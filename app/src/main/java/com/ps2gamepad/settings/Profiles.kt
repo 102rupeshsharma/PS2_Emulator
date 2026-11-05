@@ -54,16 +54,35 @@ object DefaultProfiles {
  *  at least one profile, unique ids, unique names, active id always valid, built-ins never removed. */
 object ProfileManager {
 
+    /** User loadouts (non-built-in profiles) are limited to this number. */
+    const val MAX_LOADOUTS = 5
+
+    fun loadouts(s: ProfileStore): List<ControllerProfile> = s.profiles.filter { !it.builtIn }
+    fun canCreateLoadout(s: ProfileStore): Boolean = loadouts(s).size < MAX_LOADOUTS
+
+    /**
+     * New loadout as a copy of [templateId]'s layout, look, analog and gyro settings (so the user
+     * starts from what they know), with a new id and name. Refused (store unchanged) at the limit.
+     */
+    fun createFrom(s: ProfileStore, name: String, templateId: String, idGen: () -> String): ProfileStore {
+        if (!canCreateLoadout(s)) return s
+        val src = s.profiles.firstOrNull { it.id == templateId } ?: s.active
+        val p = src.copy(id = uniqueId(s, idGen), name = uniqueName(s, name.ifBlank { "Loadout" }), builtIn = false).sanitized()
+        return s.copy(profiles = s.profiles + p, activeId = p.id)
+    }
+
     fun switchTo(s: ProfileStore, id: String): ProfileStore =
         if (s.profiles.any { it.id == id }) s.copy(activeId = id) else s
 
     fun create(s: ProfileStore, name: String, idGen: () -> String): ProfileStore {
+        if (!canCreateLoadout(s)) return s
         val p = ControllerProfile(id = uniqueId(s, idGen), name = uniqueName(s, name.ifBlank { "New profile" }))
         return s.copy(profiles = s.profiles + p.sanitized(), activeId = p.id)
     }
 
     fun duplicate(s: ProfileStore, id: String, idGen: () -> String): ProfileStore {
         val src = s.profiles.firstOrNull { it.id == id } ?: return s
+        if (!canCreateLoadout(s)) return s
         val copy = src.copy(id = uniqueId(s, idGen), name = uniqueName(s, "${src.name} copy"), builtIn = false)
         return s.copy(profiles = s.profiles + copy, activeId = copy.id)
     }
@@ -118,11 +137,16 @@ object ProfileManager {
         return id
     }
 
+    /**
+     * Unique among the user's loadouts. Built-in presets don't count: a loadout called
+     * "God of War" must not silently become "God of War 2" (which reads like the sequel).
+     */
     private fun uniqueName(s: ProfileStore, base: String): String {
         val b = base.trim().take(ControllerProfile.MAX_NAME - 3)
-        if (s.profiles.none { it.name.equals(b, true) }) return b
+        val taken = loadouts(s)
+        if (taken.none { it.name.equals(b, true) }) return b
         var i = 2
-        while (s.profiles.any { it.name.equals("$b $i", true) }) i++
+        while (taken.any { it.name.equals("$b $i", true) }) i++
         return "$b $i"
     }
 }

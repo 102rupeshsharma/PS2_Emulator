@@ -36,7 +36,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
-enum class Screen { HOME, STYLES, GYRO, DASHBOARD, CONNECTION, CONTROLLER, DIAGNOSTICS, CUSTOMIZE, PROFILES, CALIBRATION }
+enum class Screen { HOME, LOADOUTS, STYLES, GYRO, DASHBOARD, CONNECTION, CONTROLLER, DIAGNOSTICS, CUSTOMIZE, PROFILES, CALIBRATION }
 
 /** A controller session, for measured (not estimated) battery and duration figures. */
 data class Session(val startUptimeMs: Long, val startBattery: Int?)
@@ -414,8 +414,51 @@ class MainViewModel(
         settings.update { ProfileManager.switchTo(it, id) }
         refreshMotion()
     }
-    fun createProfile(name: String) = settings.update { ProfileManager.create(it, name, newId) }
-    fun duplicateProfile(id: String) = settings.update { ProfileManager.duplicate(it, id, newId) }
+    fun createProfile(name: String) {
+        if (!ProfileManager.canCreateLoadout(profiles.value)) { log.add(LOADOUT_LIMIT_MESSAGE); return }
+        settings.update { ProfileManager.create(it, name, newId) }
+    }
+    fun duplicateProfile(id: String) {
+        if (!ProfileManager.canCreateLoadout(profiles.value)) { log.add(LOADOUT_LIMIT_MESSAGE); return }
+        settings.update { ProfileManager.duplicate(it, id, newId) }
+    }
+
+    // ------------------------------------------------------------------ loadouts (per-game setups)
+
+    /** The user's own loadouts (max [ProfileManager.MAX_LOADOUTS]). */
+    val loadouts: List<ControllerProfile> get() = ProfileManager.loadouts(profiles.value)
+    val canCreateLoadout: Boolean get() = ProfileManager.canCreateLoadout(profiles.value)
+
+    /** "Open Controller" always goes through the loadout picker. */
+    fun openController() = navigate(Screen.LOADOUTS)
+
+    /** Play with [id]: make it active and open the controller. */
+    fun playLoadout(id: String) {
+        switchProfile(id)
+        navigate(Screen.CONTROLLER)
+    }
+
+    /**
+     * Creates a loadout named [name] from the current setup, makes it active and opens the
+     * controller in Edit mode so the buttons can be arranged right away. Returns false at the limit.
+     */
+    fun createLoadout(name: String): Boolean {
+        val before = profiles.value
+        if (!ProfileManager.canCreateLoadout(before)) { log.add(LOADOUT_LIMIT_MESSAGE); return false }
+        settings.update { ProfileManager.createFrom(it, name, it.activeId, newId) }
+        log.add("Loadout \"${profiles.value.active.name}\" created")
+        navigate(Screen.CONTROLLER)
+        setEditMode(true)
+        refreshMotion()
+        return true
+    }
+
+    fun deleteLoadout(id: String) {
+        val name = profiles.value.profiles.firstOrNull { it.id == id }?.name
+        settings.update { ProfileManager.delete(it, id) }
+        log.add("Loadout \"$name\" deleted")
+        refreshMotion()
+    }
     fun renameProfile(id: String, name: String) = settings.update { ProfileManager.rename(it, id, name) }
     fun deleteProfile(id: String) = settings.update { ProfileManager.delete(it, id) }
     fun restoreProfileDefaults(id: String) = settings.update { ProfileManager.restoreDefaults(it, id) }
@@ -539,6 +582,7 @@ class MainViewModel(
     }
 
     companion object {
+        const val LOADOUT_LIMIT_MESSAGE = "You already have 5 loadouts. Delete one to create a new one."
         const val MAX_AUTO_REGISTER = 3
         /** Gyro jitter filter: right-stick change (HID counts) needed before a new report. */
         const val GYRO_AXIS_THRESHOLD = 2

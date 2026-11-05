@@ -1,11 +1,15 @@
 package com.ps2gamepad.ui
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.fillMaxSize
@@ -13,29 +17,39 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.OutlinedButton
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ps2gamepad.bluetooth.PhoneNameControl
+import com.ps2gamepad.ui.controller.ControllerPreview
+import com.ps2gamepad.ui.controller.Skins
+
+private val HomeTop = Color(0xFF151A2E)
+private val HomeBottom = Color(0xFF07080D)
+private val CardTop = Color(0xFF1F2438)
+private val CardBottom = Color(0xFF161A28)
+private val CardLine = Color(0x33FFFFFF)
 
 /**
- * The simple start screen: one status in plain words and the one button needed right now.
- * Everything else (controller settings, profiles, diagnostics) is behind "More".
+ * Premium start screen: one status in plain words with the single action needed now, a live
+ * preview of the selected controller style, and three quick tiles. Advanced screens are under "More".
  */
 @Composable
 fun SimpleHomeScreen(vm: MainViewModel, actions: AppActions) {
@@ -43,61 +57,147 @@ fun SimpleHomeScreen(vm: MainViewModel, actions: AppActions) {
     val perm by vm.permission.collectAsStateWithLifecycle()
     val hid by vm.hidState.collectAsStateWithLifecycle()
     val name by vm.phoneName.collectAsStateWithLifecycle()
+    val profile by vm.activeProfile.collectAsStateWithLifecycle()
     vm.bondedHosts.collectAsStateWithLifecycle().value // recompose when the paired list changes
     vm.profiles.collectAsStateWithLifecycle().value     // ...or the last connection changes
 
     val phoneName = name ?: PhoneNameControl.GAMEPAD_NAME
     val st = simpleStatus(bt, perm, hid, vm.knownPc, phoneName)
+    val skin = Skins.of(profile.appearance.skin)
     BackHandler { actions.exit() }
 
     Box(
-        Modifier.fillMaxSize().background(Palette.Background).windowInsetsPadding(WindowInsets.displayCutout).padding(16.dp).testTag("home"),
+        Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(HomeTop, HomeBottom))).testTag("home"),
     ) {
-        Column(
-            Modifier.align(Alignment.Center).widthIn(max = 620.dp).fillMaxWidth(),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(14.dp),
+        // soft glow in the status colour behind the status card
+        Canvas(Modifier.fillMaxSize()) {
+            drawCircle(
+                Brush.radialGradient(listOf(st.severity.color.copy(alpha = 0.22f), Color.Transparent), center = Offset(size.width * 0.25f, size.height * 0.45f), radius = size.height * 0.75f),
+                radius = size.height * 0.75f, center = Offset(size.width * 0.25f, size.height * 0.45f),
+            )
+        }
+        Row(
+            Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.displayCutout).padding(horizontal = 24.dp, vertical = 18.dp),
+            horizontalArrangement = Arrangement.spacedBy(24.dp),
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Box(Modifier.size(22.dp).background(st.severity.color, CircleShape))
-                Text(st.title, color = Palette.Text, fontSize = 30.sp, fontWeight = FontWeight.Bold, modifier = Modifier.testTag("homeTitle"))
-            }
-            Text(st.help, color = Palette.TextDim, fontSize = 17.sp, textAlign = TextAlign.Center, modifier = Modifier.testTag("homeHelp"))
+            // ------------------------------------------------ left: brand, status, main action
+            Column(Modifier.weight(1.05f).fillMaxSize().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Box(
+                        Modifier.size(44.dp).clip(RoundedCornerShape(12.dp))
+                            .background(Brush.linearGradient(listOf(Color(0xFF4C6FFF), Color(0xFF8E5CFF)))),
+                        contentAlignment = Alignment.Center,
+                    ) { Text("PS2", color = Color.White, fontWeight = FontWeight.Black, fontSize = 14.sp) }
+                    Column {
+                        Text("PS2 Gamepad", color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Bold)
+                        Text("Bluetooth controller for your PC", color = Palette.TextDim, fontSize = 12.sp)
+                    }
+                }
 
-            if (st.action != SimpleAction.NONE_WAIT) {
-                Button(
-                    onClick = {
-                        when (st.action) {
-                            SimpleAction.ALLOW_PERMISSION -> actions.requestPermissions()
-                            SimpleAction.TURN_ON_BLUETOOTH -> actions.enableBluetooth()
-                            SimpleAction.RETRY_SETUP -> vm.register()
-                            SimpleAction.MAKE_VISIBLE -> { vm.applyPhoneName(); actions.makeDiscoverable() }
-                            SimpleAction.CONNECT_PC -> vm.connectKnownPc()
-                            SimpleAction.OPEN_CONTROLLER -> vm.navigate(Screen.CONTROLLER)
-                            SimpleAction.NONE_WAIT -> Unit
+                Column(
+                    Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp))
+                        .background(Brush.verticalGradient(listOf(CardTop, CardBottom)))
+                        .border(1.dp, Brush.linearGradient(listOf(st.severity.color.copy(alpha = 0.7f), CardLine)), RoundedCornerShape(24.dp))
+                        .padding(20.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Box(
+                            Modifier.size(18.dp).background(Brush.radialGradient(listOf(st.severity.color, st.severity.color.copy(alpha = 0.35f))), CircleShape)
+                                .border(3.dp, st.severity.color.copy(alpha = 0.25f), CircleShape),
+                        )
+                        Text(st.title, color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Bold, modifier = Modifier.testTag("homeTitle"))
+                    }
+                    Text(st.help, color = Color(0xFFB7BCCB), fontSize = 14.sp, lineHeight = 20.sp, modifier = Modifier.testTag("homeHelp"))
+                    if (st.action != SimpleAction.NONE_WAIT) {
+                        Spacer(Modifier.height(4.dp))
+                        GradientButton(
+                            st.actionLabel,
+                            if (st.action == SimpleAction.OPEN_CONTROLLER) listOf(Color(0xFF22C55E), Color(0xFF16A34A))
+                            else listOf(Color(0xFF4C6FFF), Color(0xFF8E5CFF)),
+                            Modifier.fillMaxWidth().testTag("homeAction"),
+                        ) {
+                            when (st.action) {
+                                SimpleAction.ALLOW_PERMISSION -> actions.requestPermissions()
+                                SimpleAction.TURN_ON_BLUETOOTH -> actions.enableBluetooth()
+                                SimpleAction.RETRY_SETUP -> vm.register()
+                                SimpleAction.MAKE_VISIBLE -> { vm.applyPhoneName(); actions.makeDiscoverable() }
+                                SimpleAction.CONNECT_PC -> vm.connectKnownPc()
+                                SimpleAction.OPEN_CONTROLLER -> vm.navigate(Screen.CONTROLLER)
+                                SimpleAction.NONE_WAIT -> Unit
+                            }
                         }
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = if (st.action == SimpleAction.OPEN_CONTROLLER) Palette.Good else Palette.Info),
-                    modifier = Modifier.height(64.dp).widthIn(min = 320.dp).testTag("homeAction"),
-                ) { Text(st.actionLabel, fontSize = 20.sp, fontWeight = FontWeight.SemiBold) }
-            }
-            // Pairing a new laptop is always possible, also when one is already known.
-            if (st.action == SimpleAction.CONNECT_PC) {
-                OutlinedButton(onClick = { vm.applyPhoneName(); actions.makeDiscoverable() }, modifier = Modifier.testTag("homePairNew")) {
-                    Text("Pair a laptop again / a new laptop", fontSize = 14.sp)
+                    }
+                    if (st.action == SimpleAction.CONNECT_PC) {
+                        Text(
+                            "Pair a laptop again / a new laptop",
+                            color = Color(0xFF9DB0FF), fontSize = 13.sp, fontWeight = FontWeight.Medium,
+                            modifier = Modifier.clip(RoundedCornerShape(8.dp)).clickable { vm.applyPhoneName(); actions.makeDiscoverable() }
+                                .padding(vertical = 4.dp, horizontal = 2.dp).testTag("homePairNew"),
+                        )
+                    }
+                }
+
+                Row(
+                    Modifier.clip(RoundedCornerShape(50)).background(Color(0x14FFFFFF)).padding(horizontal = 14.dp, vertical = 7.dp).testTag("homeName"),
+                    verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Box(Modifier.size(8.dp).background(Color(0xFF4C6FFF), CircleShape))
+                    Text("Shown on your PC as", color = Palette.TextDim, fontSize = 12.sp)
+                    Text("\"$phoneName\"", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                 }
             }
 
-            Text(
-                "On the PC this phone is called:  \"$phoneName\"",
-                color = Palette.Text, fontSize = 15.sp,
-                modifier = Modifier.background(Palette.Surface, RoundedCornerShape(8.dp)).padding(horizontal = 12.dp, vertical = 6.dp).testTag("homeName"),
-            )
+            // ------------------------------------------------ right: style preview + tiles
+            Column(Modifier.weight(1f).fillMaxSize().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Column(
+                    Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp))
+                        .background(Brush.verticalGradient(listOf(CardTop, CardBottom)))
+                        .border(1.dp, CardLine, RoundedCornerShape(24.dp))
+                        .clickable { vm.navigate(Screen.STYLES) }
+                        .padding(14.dp)
+                        .testTag("homePreview"),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("Your controller", color = Palette.TextDim, fontSize = 12.sp, modifier = Modifier.weight(1f))
+                        Box(Modifier.background(skin.accent.copy(alpha = 0.9f), RoundedCornerShape(50)).padding(horizontal = 10.dp, vertical = 3.dp)) {
+                            Text(profile.appearance.skin.label, color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                    ControllerPreview(vm.input, profile, Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)))
+                    Text("Profile: ${profile.name}", color = Palette.TextDim, fontSize = 11.sp)
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    HomeTile("Styles", "5 premium looks", Color(0xFF8E5CFF), Modifier.weight(1f).testTag("homeStyles")) { vm.navigate(Screen.STYLES) }
+                    HomeTile("Customize", "Size · opacity", Color(0xFF22C55E), Modifier.weight(1f).testTag("homeCustomize")) { vm.navigate(Screen.CUSTOMIZE) }
+                    HomeTile("More", "Profiles · settings", Color(0xFFF59E0B), Modifier.weight(1f).testTag("homeMore")) { vm.navigate(Screen.DASHBOARD) }
+                }
+            }
         }
+    }
+}
 
-        Row(Modifier.align(Alignment.BottomEnd), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedButton(onClick = { vm.navigate(Screen.LOGS) }, modifier = Modifier.testTag("homeLogs")) { Text("Logs (testing)") }
-            OutlinedButton(onClick = { vm.navigate(Screen.DASHBOARD) }, modifier = Modifier.testTag("homeMore")) { Text("More") }
-        }
+@Composable
+private fun GradientButton(text: String, colors: List<Color>, modifier: Modifier, onClick: () -> Unit) {
+    Box(
+        modifier.height(56.dp).clip(RoundedCornerShape(50)).background(Brush.horizontalGradient(colors)).clickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) { Text(text, color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.SemiBold) }
+}
+
+@Composable
+private fun HomeTile(title: String, subtitle: String, accent: Color, modifier: Modifier, onClick: () -> Unit) {
+    Column(
+        modifier.clip(RoundedCornerShape(18.dp))
+            .background(Brush.verticalGradient(listOf(CardTop, CardBottom)))
+            .border(1.dp, CardLine, RoundedCornerShape(18.dp))
+            .clickable(onClick = onClick)
+            .padding(12.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        Box(Modifier.width(26.dp).height(4.dp).background(accent, RoundedCornerShape(50)))
+        Text(title, color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+        Text(subtitle, color = Palette.TextDim, fontSize = 10.sp, maxLines = 1)
     }
 }

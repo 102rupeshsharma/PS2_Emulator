@@ -31,7 +31,10 @@ import com.ps2gamepad.controller.LayoutEngine
 import com.ps2gamepad.model.ControllerBackground
 import com.ps2gamepad.model.Stick
 import com.ps2gamepad.model.StickSettings
-import com.ps2gamepad.ui.controller.ControllerLayout
+import com.ps2gamepad.model.Appearance
+import com.ps2gamepad.model.ControlId
+import com.ps2gamepad.model.ControllerSkin
+import com.ps2gamepad.ui.controller.ControllerPreview
 
 /**
  * Appearance + analog settings of the active profile. Every change is applied to the profile at
@@ -44,23 +47,16 @@ fun CustomizeScreen(vm: MainViewModel) {
     val profile by vm.activeProfile.collectAsStateWithLifecycle()
     val a = profile.appearance
     var stickTab by remember { mutableStateOf(Stick.LEFT) }
+    var opacityTarget by remember { mutableStateOf(ControlId.FACE) }
 
     ScreenFrame("Customize: ${profile.name}", onBack = { vm.navigate(Screen.HOME) }) {
         Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("Preview (same layout as the controller, not interactive)", color = Palette.TextDim, fontSize = 11.sp)
-                BoxWithConstraints(
-                    Modifier.fillMaxWidth().aspectRatio(2.2f).clipToBounds()
-                        .border(1.dp, Palette.SurfaceHigh, RoundedCornerShape(8.dp)).background(Color(0xFF0B0C0E)).testTag("preview")
-                ) {
-                    // The preview is a scaled-down screen: lay out at a phone-like size, then scale.
-                    val refW = 900f
-                    val refH = refW / 2.2f
-                    val k = maxWidth.value / refW
-                    val rects = remember(a, profile.placements) { LayoutEngine.resolve(refW, refH, a, profile.placements) }
-                        .mapValues { (_, r) -> r.copy(cx = r.cx * k, cy = r.cy * k, w = r.w * k, h = r.h * k) }
-                    ControllerLayout(vm.input, 0, profile, rects, interactive = false)
-                }
+                ControllerPreview(
+                    vm.input, profile,
+                    Modifier.fillMaxWidth().border(1.dp, Palette.SurfaceHigh, RoundedCornerShape(8.dp)).testTag("preview"),
+                )
                 val overlaps = remember(a, profile.placements) { LayoutEngine.overlaps(LayoutEngine.resolve(900f, 900f / 2.2f, a, profile.placements)) }
                 if (overlaps.isNotEmpty()) {
                     Text(
@@ -77,10 +73,19 @@ fun CustomizeScreen(vm: MainViewModel) {
 
             Column(Modifier.weight(1.1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Card {
+                    Text("Style", color = Palette.TextDim, fontSize = 12.sp)
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        ControllerSkin.entries.forEach { sk ->
+                            FilterChip(selected = a.skin == sk, onClick = { vm.updateAppearance { it.copy(skin = sk) } },
+                                label = { Text(sk.label, fontSize = 11.sp) }, modifier = Modifier.testTag("skin_${sk.name}"))
+                        }
+                    }
+                }
+                Card {
                     Text("Appearance", color = Palette.TextDim, fontSize = 12.sp)
                     LabeledSlider("Button size", a.buttonScale, 0.6f..1.6f, ::pct, "s_buttonScale") { v -> vm.updateAppearance { it.copy(buttonScale = v) } }
                     LabeledSlider("Stick size", a.stickScale, 0.6f..1.6f, ::pct, "s_stickScale") { v -> vm.updateAppearance { it.copy(stickScale = v) } }
-                    LabeledSlider("Button opacity", a.buttonOpacity, 0.2f..1f, ::pct, "s_buttonOpacity") { v -> vm.updateAppearance { it.copy(buttonOpacity = v) } }
+                    LabeledSlider("Opacity, all controls", a.buttonOpacity, 0.2f..1f, ::pct, "s_buttonOpacity") { v -> vm.updateAppearance { it.copy(buttonOpacity = v) } }
                     LabeledSlider("Controller opacity", a.controllerOpacity, 0f..1f, ::pct, "s_controllerOpacity") { v -> vm.updateAppearance { it.copy(controllerOpacity = v) } }
                     LabeledSlider("Face button spacing", a.buttonSpacing, 0.8f..1.3f, ::pct, "s_spacing") { v -> vm.updateAppearance { it.copy(buttonSpacing = v) } }
                     Text("Background", color = Palette.Text, fontSize = 12.sp)
@@ -92,6 +97,21 @@ fun CustomizeScreen(vm: MainViewModel) {
                     }
                     LabeledSwitch("Show button labels", a.showLabels, "sw_labels") { v -> vm.updateAppearance { it.copy(showLabels = v) } }
                     LabeledSwitch("Haptic feedback on press", a.haptics, "sw_haptics") { v -> vm.updateAppearance { it.copy(haptics = v) } }
+                }
+                Card {
+                    Text("Opacity of each control (on top of \"all controls\")", color = Palette.TextDim, fontSize = 12.sp)
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        ControlId.entries.forEach { id ->
+                            val pctText = (a.opacityOf(id) * 100).toInt()
+                            FilterChip(selected = opacityTarget == id, onClick = { opacityTarget = id },
+                                label = { Text(if (pctText < 100) "${id.label} $pctText%" else id.label, fontSize = 11.sp) },
+                                modifier = Modifier.testTag("op_${id.name}"))
+                        }
+                    }
+                    LabeledSlider("${opacityTarget.label} opacity", a.opacityOf(opacityTarget), Appearance.MIN_CONTROL_OPACITY..1f, ::pct, "s_controlOpacity") { v ->
+                        vm.setControlOpacity(opacityTarget, v)
+                    }
+                    ActionButton("All controls to 100 %", outlined = true) { vm.updateAppearance { it.copy(controlOpacity = emptyMap()) } }
                 }
                 Card {
                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {

@@ -199,7 +199,7 @@ class SimpleHomeUiTest {
         rule.onNodeWithText("Getting ready…").assertIsDisplayed()
         rule.runOnIdle { hid.emit(HidEvent.AppStatusChanged(true)) }
         rule.onNodeWithText("Ready to pair").assertIsDisplayed()
-        rule.onNodeWithText("On the PC this phone is called:  \"PS2 Gamepad\"").assertIsDisplayed()
+        rule.onNodeWithText("\"PS2 Gamepad\"").assertIsDisplayed()
         rule.onNodeWithTag("homeAction").performClick()
         rule.runOnIdle { assertEquals(1, discoverableRequests) }
         rule.runOnIdle { hid.emit(HidEvent.ConnectionChanged(laptop, HidStateReducer.STATE_CONNECTED)) }
@@ -208,13 +208,23 @@ class SimpleHomeUiTest {
         rule.runOnIdle { assertEquals(Screen.CONTROLLER, vm.screen.value) }
     }
 
-    @Test fun logsButtonOpensLogScreen() {
-        rule.runOnIdle { vm.log.add("hello from the test") }
-        rule.onNodeWithTag("homeLogs").performClick()
-        rule.onNodeWithText("Logs (testing)").assertIsDisplayed()
-        rule.onNodeWithText("hello from the test", substring = true).assertIsDisplayed()
-        rule.onNodeWithText("Clear").performClick()
-        rule.runOnIdle { assertTrue(vm.log.lines.value.isEmpty()) }
+    @Test fun noTestingLogsButtonOnHome() {
+        rule.onNodeWithTag("homeLogs").assertDoesNotExist()
+        rule.onNodeWithText("Logs (testing)").assertDoesNotExist()
+    }
+
+    @Test fun stylesTileOpensStylesAndPickingAStyleAppliesIt() {
+        rule.onNodeWithTag("homeStyles").performClick()
+        rule.onNodeWithText("Controller styles").assertIsDisplayed()
+        rule.onNodeWithTag("style_XBOX_STYLE").performClick()
+        rule.waitForIdle()
+        rule.runOnIdle { assertEquals(com.ps2gamepad.model.ControllerSkin.XBOX_STYLE, vm.activeProfile.value.appearance.skin) }
+        rule.onNodeWithText("IN USE").assertIsDisplayed()
+    }
+
+    @Test fun previewCardShowsCurrentStyle() {
+        rule.onNodeWithTag("homePreview").assertIsDisplayed()
+        rule.onNodeWithText("PS2 Classic").assertIsDisplayed()
     }
 
     @Test fun moreOpensTheFullMenu() {

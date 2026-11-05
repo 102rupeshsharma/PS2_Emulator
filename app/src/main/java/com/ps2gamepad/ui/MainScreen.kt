@@ -60,7 +60,7 @@ fun App(vm: MainViewModel, actions: AppActions) {
         val screen by vm.screen.collectAsStateWithLifecycle()
         when (screen) {
             Screen.HOME -> SimpleHomeScreen(vm, actions)
-            Screen.LOGS -> LogsScreen(vm)
+            Screen.STYLES -> StylesScreen(vm)
             Screen.DASHBOARD -> DashboardScreen(vm, actions)
             Screen.CONNECTION -> MainScreen(vm, actions)
             Screen.CONTROLLER -> ControllerScreen(vm)

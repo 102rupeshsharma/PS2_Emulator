@@ -90,7 +90,7 @@ fun ControllerScreen(vm: MainViewModel) {
     LaunchedEffect(backHint) { if (backHint) { delay(2000); backHint = false } }
 
     BoxWithConstraints(
-        Modifier.fillMaxSize().background(Color(0xFF0B0C0E)).windowInsetsPadding(WindowInsets.displayCutout).testTag("controller")
+        Modifier.fillMaxSize().background(Skins.of(profile.appearance.skin).screen).windowInsetsPadding(WindowInsets.displayCutout).testTag("controller")
     ) {
         val w = maxWidth.value
         val h = maxHeight.value
@@ -141,25 +141,32 @@ fun ControllerLayout(
     interactive: Boolean,
 ) {
     val a = profile.appearance
-    ControllerBackgroundArt(a.background, Modifier.fillMaxSize().alpha(a.controllerOpacity))
+    val skin = Skins.of(a.skin)
+    ControllerBackgroundArt(a.background, skin, Modifier.fillMaxSize().alpha(a.controllerOpacity))
     val style = ControlStyle(showLabels = a.showLabels, haptics = a.haptics && interactive, faceSpacing = a.buttonSpacing, interactive = interactive)
-    CompositionLocalProvider(LocalControlStyle provides style) {
+    CompositionLocalProvider(LocalControlStyle provides style, LocalSkin provides skin) {
         Box(Modifier.fillMaxSize().alpha(a.buttonOpacity)) {
+            // place + per-control opacity
+            fun Modifier.at(id: ControlId) = this.place(rects.getValue(id)).alpha(a.opacityOf(id))
             fun r(id: ControlId) = rects.getValue(id)
             fun fs(id: ControlId, k: Float) = (r(id).h * k).sp
-            for ((id, b, label) in listOf(
+            // test tags keep the PS2 names; the visible label comes from the style
+            for ((id, b, tag) in listOf(
                 Triple(ControlId.L2, ControllerButton.L2, "L2"), Triple(ControlId.L1, ControllerButton.L1, "L1"),
                 Triple(ControlId.R2, ControllerButton.R2, "R2"), Triple(ControlId.R1, ControllerButton.R1, "R1"),
-            )) DigitalButton(b, input, epoch, label, KeyShape.ROUNDED, fs(id, 0.36f), Modifier.place(r(id)).testTag("btn_$label"))
+            )) {
+                val label = when (id) { ControlId.L2 -> skin.labelL2; ControlId.L1 -> skin.labelL1; ControlId.R2 -> skin.labelR2; else -> skin.labelR1 }
+                DigitalButton(b, input, epoch, label, KeyShape.ROUNDED, fs(id, 0.36f), Modifier.at(id).testTag("btn_$tag"))
+            }
 
-            DpadControl(input, epoch, Modifier.place(r(ControlId.DPAD)).testTag("dpad"))
-            FaceButtons(input, epoch, Modifier.place(r(ControlId.FACE)).testTag("face"))
-            AnalogStick(Stick.LEFT, input, epoch, profile.left, Modifier.place(r(ControlId.LEFT_STICK)).testTag("stick_left"))
-            AnalogStick(Stick.RIGHT, input, epoch, profile.right, Modifier.place(r(ControlId.RIGHT_STICK)).testTag("stick_right"))
-            DigitalButton(ControllerButton.L3, input, epoch, "L3", KeyShape.CIRCLE, fs(ControlId.L3, 0.3f), Modifier.place(r(ControlId.L3)).testTag("btn_L3"))
-            DigitalButton(ControllerButton.R3, input, epoch, "R3", KeyShape.CIRCLE, fs(ControlId.R3, 0.3f), Modifier.place(r(ControlId.R3)).testTag("btn_R3"))
-            DigitalButton(ControllerButton.SELECT, input, epoch, "SELECT", KeyShape.PILL, fs(ControlId.SELECT, 0.4f), Modifier.place(r(ControlId.SELECT)).testTag("btn_SELECT"))
-            DigitalButton(ControllerButton.START, input, epoch, "START", KeyShape.PILL, fs(ControlId.START, 0.4f), Modifier.place(r(ControlId.START)).testTag("btn_START"))
+            DpadControl(input, epoch, Modifier.at(ControlId.DPAD).testTag("dpad"))
+            FaceButtons(input, epoch, Modifier.at(ControlId.FACE).testTag("face"))
+            AnalogStick(Stick.LEFT, input, epoch, profile.left, Modifier.at(ControlId.LEFT_STICK).testTag("stick_left"))
+            AnalogStick(Stick.RIGHT, input, epoch, profile.right, Modifier.at(ControlId.RIGHT_STICK).testTag("stick_right"))
+            DigitalButton(ControllerButton.L3, input, epoch, skin.labelL3, KeyShape.CIRCLE, fs(ControlId.L3, 0.3f), Modifier.at(ControlId.L3).testTag("btn_L3"))
+            DigitalButton(ControllerButton.R3, input, epoch, skin.labelR3, KeyShape.CIRCLE, fs(ControlId.R3, 0.3f), Modifier.at(ControlId.R3).testTag("btn_R3"))
+            DigitalButton(ControllerButton.SELECT, input, epoch, skin.labelSelect, KeyShape.PILL, fs(ControlId.SELECT, 0.34f), Modifier.at(ControlId.SELECT).testTag("btn_SELECT"))
+            DigitalButton(ControllerButton.START, input, epoch, skin.labelStart, KeyShape.PILL, fs(ControlId.START, 0.34f), Modifier.at(ControlId.START).testTag("btn_START"))
         }
     }
 }
@@ -252,6 +259,12 @@ private fun LayoutEditor(vm: MainViewModel, profile: ControllerProfile, w: Float
                         else message = "Larger would overlap ${hits.joinToString { it.label }}"
                     },
                 )
+                Text("Opacity ${(profile.appearance.opacityOf(sel) * 100).toInt()} %", color = Color.White, fontSize = 11.sp, modifier = Modifier.width(90.dp))
+                Slider(
+                    value = profile.appearance.opacityOf(sel), valueRange = com.ps2gamepad.model.Appearance.MIN_CONTROL_OPACITY..1f,
+                    modifier = Modifier.width(160.dp).testTag("opacitySlider"),
+                    onValueChange = { vm.setControlOpacity(sel, it) },
+                )
             }
         }
         message?.let {
@@ -283,11 +296,11 @@ private fun LiveOverlay(vm: MainViewModel, modifier: Modifier) {
     }
 }
 
-/** Background art. Drawn in its own layer; it never recomposes on input. */
+/** Background art in the style's colours. Drawn in its own layer; it never recomposes on input. */
 @Composable
-fun ControllerBackgroundArt(bg: ControllerBackground, modifier: Modifier) {
+fun ControllerBackgroundArt(bg: ControllerBackground, skin: SkinTheme, modifier: Modifier) {
     when (bg) {
-        ControllerBackground.DS2_BODY -> PadBody(modifier)
+        ControllerBackground.DS2_BODY -> PadBody(skin, modifier.background(skin.screen))
         ControllerBackground.DARK -> Box(modifier.background(Color(0xFF17191D)))
         ControllerBackground.BLACK -> Box(modifier.background(Color.Black))
         ControllerBackground.BLUE -> Box(modifier.background(Brush.verticalGradient(listOf(Color(0xFF14213D), Color(0xFF0A1022)))))
@@ -295,12 +308,12 @@ fun ControllerBackgroundArt(bg: ControllerBackground, modifier: Modifier) {
 }
 
 @Composable
-private fun PadBody(modifier: Modifier) {
+private fun PadBody(skin: SkinTheme, modifier: Modifier) {
     Canvas(modifier) {
         val w = size.width
         val h = size.height
-        val edge = PadColors.BodyEdge
-        val body = Brush.verticalGradient(listOf(Color(0xFF26282E), PadColors.Body))
+        val edge = skin.bodyEdge
+        val body = Brush.verticalGradient(listOf(skin.bodyTop, skin.bodyBottom))
         for (left in listOf(true, false)) {
             val cx = if (left) w * 0.19f else w * 0.81f
             val gw = w * 0.36f
@@ -313,8 +326,10 @@ private fun PadBody(modifier: Modifier) {
         for (left in listOf(true, false)) {
             val cx = if (left) w * 0.19f else w * 0.81f
             val gw = w * 0.36f
-            drawOval(PadColors.Body, topLeft = Offset(cx - gw / 2 + 3f, h * 0.45f), size = Size(gw - 6f, h * 0.61f - 3f))
+            drawOval(skin.bodyBottom, topLeft = Offset(cx - gw / 2 + 3f, h * 0.45f), size = Size(gw - 6f, h * 0.61f - 3f))
         }
-        drawRoundRect(PadColors.BodyCenter, topLeft = Offset(w * 0.40f, h * 0.17f), size = Size(w * 0.20f, h * 0.30f), cornerRadius = CornerRadius(h * 0.05f))
+        // centre panel (touchpad area on the PS5 style), with an accent light bar
+        drawRoundRect(skin.centerPanel, topLeft = Offset(w * 0.37f, h * 0.15f), size = Size(w * 0.26f, h * 0.33f), cornerRadius = CornerRadius(h * 0.06f))
+        drawRoundRect(skin.accent.copy(alpha = 0.85f), topLeft = Offset(w * 0.44f, h * 0.135f), size = Size(w * 0.12f, h * 0.012f), cornerRadius = CornerRadius(h * 0.01f))
     }
 }

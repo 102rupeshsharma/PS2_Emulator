@@ -2,7 +2,7 @@
 
 ## 📥 Download
 
-### **[⬇️ Download the APK (v1.1.0, 2.5 MB)](download/PS2BluetoothGamepad.apk?raw=true)**
+### **[⬇️ Download the APK (v1.2.0, 2.5 MB)](download/PS2BluetoothGamepad.apk?raw=true)**
 
 **Install on your phone:**
 1. Open this page on your Android phone and tap the download link above.
@@ -19,7 +19,18 @@
    - If the phone was paired with the laptop *before*, remove it in Windows Bluetooth settings first and pair again.
 
 Requires Android 9 or newer with Bluetooth.
-SHA-256: `dede35c3a62d01596ce4dc42c43e4ff801cfee3a47f0af44bc5ea932f0feb542`
+
+### Screens
+
+| Home | Controller styles |
+|---|---|
+| ![Home](docs/screenshots/02_home_connected.png) | ![Styles](docs/screenshots/03_styles.png) |
+| **PS5 Style** | **Xbox Style** |
+| ![PS5 style](docs/screenshots/04_style_ps5_style.png) | ![Xbox style](docs/screenshots/04_style_xbox_style.png) |
+
+5 styles: **PS2 Classic, PS5 Style, Xbox Style, Retro, Neon**. Only the look changes: every
+button position always sends the same signal, so emulator settings keep working when you switch.
+SHA-256: `b93751b74a7bd83b7e35bcafe6671c4a1984727d5f7a3e43ef491d2523d66358`
 
 ---
 
@@ -50,8 +61,9 @@ end-to-end latency are therefore all *unverified*. See [TEST_REPORT.md](TEST_REP
 - **Never-stuck inputs:** everything is released on lift, cancel, app pause, focus loss,
   notification shade, back, profile switch, layout editing, Bluetooth off and connection loss.
   A failed report is retried with the current state.
-- **Customization:** button size, stick size, opacity, controller opacity, face-button spacing,
-  4 backgrounds, labels, haptics.
+- **5 controller styles** (PS2 Classic, PS5 Style, Xbox Style, Retro, Neon) with live previews.
+- **Customization:** button size, stick size, opacity of all controls **and of each control**, controller opacity,
+  face-button spacing, 4 backgrounds, labels, haptics.
 - **Layout editor:** drag, resize and reset controls; overlapping drops are refused; layouts adapt to any screen size.
 - **Profiles:** Standard PS2, God of War, God of War II, GTA San Andreas, NFS Most Wanted, Custom,
   plus your own (create, rename, duplicate, delete, restore). Profiles never change the button mapping.

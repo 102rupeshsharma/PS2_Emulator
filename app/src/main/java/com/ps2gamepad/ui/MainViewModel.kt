@@ -36,7 +36,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
-enum class Screen { HOME, LOGS, DASHBOARD, CONNECTION, CONTROLLER, DIAGNOSTICS, CUSTOMIZE, PROFILES, CALIBRATION }
+enum class Screen { HOME, STYLES, DASHBOARD, CONNECTION, CONTROLLER, DIAGNOSTICS, CUSTOMIZE, PROFILES, CALIBRATION }
 
 /** A controller session, for measured (not estimated) battery and duration figures. */
 data class Session(val startUptimeMs: Long, val startBattery: Int?)
@@ -295,6 +295,11 @@ class MainViewModel(
 
     fun updateStick(stick: Stick, f: (StickSettings) -> StickSettings) = settings.update { s ->
         ProfileManager.updateActive(s) { if (stick == Stick.LEFT) it.copy(left = f(it.left)) else it.copy(right = f(it.right)) }
+    }
+
+    /** Opacity of one control (1 = fully visible); stored per profile. */
+    fun setControlOpacity(id: ControlId, value: Float) = updateAppearance {
+        it.copy(controlOpacity = if (value >= 0.995f) it.controlOpacity - id else it.controlOpacity + (id to value))
     }
 
     fun savePlacements(placements: Map<ControlId, Placement>) =

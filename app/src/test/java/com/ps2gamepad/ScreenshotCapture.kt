@@ -60,8 +60,13 @@ class ScreenshotCapture {
             hid.emit(HidEvent.AppStatusChanged(true)); hid.emit(HidEvent.ConnectionChanged(host, HidStateReducer.STATE_CONNECTED))
         }
         shoot("02_home_connected")
-        rule.runOnIdle { vm.navigate(Screen.LOGS) }
-        shoot("03_logs")
+        rule.runOnIdle { vm.navigate(Screen.STYLES) }
+        shoot("03_styles")
+        for (sk in com.ps2gamepad.model.ControllerSkin.entries) {
+            rule.runOnIdle { vm.updateAppearance { it.copy(skin = sk) }; vm.navigate(Screen.CONTROLLER) }
+            shoot("04_style_${sk.name.lowercase()}")
+        }
+        rule.runOnIdle { vm.updateAppearance { it.copy(skin = com.ps2gamepad.model.ControllerSkin.PS2_CLASSIC) } }
         rule.runOnIdle { vm.navigate(Screen.DASHBOARD) }
         shoot("10_dashboard")
         rule.runOnIdle { vm.navigate(Screen.CONTROLLER) }

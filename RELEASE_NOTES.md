@@ -1,5 +1,19 @@
 # Release notes
 
+## 1.2.0 (versionCode 6), 2026-11-05: premium styles
+
+- **5 controller styles:** PS2 Classic, PS5 Style (two-tone white, CREATE/OPTIONS), Xbox Style
+  (Y B A X, LB/LT/RB/RT, VIEW/MENU, LS/RS), Retro (coloured X A B Y), Neon (glowing outlines).
+  New **Styles** screen with live previews. Styles only change the look: each position always
+  sends the same HID button (the bottom face button is HID button 2 whether it shows ✕ or A).
+- **Opacity per control** (D-pad, face buttons, every shoulder button, sticks, L3/R3, Start/Select),
+  on top of the opacity for all controls. Set it in Customize, or for the selected control in Edit layout.
+  A control can't go below 10 % (an invisible control gets hit by accident).
+- **Premium home screen:** brand header, status card with the one action needed, live preview of your
+  controller style, tiles for Styles / Customize / More.
+- **Removed:** the testing Logs button and screen. "Restore my phone's original Bluetooth name" moved to More.
+- Tests: 211 (209 passed, 2 skipped), including "every style sends the same HID buttons".
+
 ## 1.1.0 (versionCode 5), 2026-11-05: simple mode
 
 After the first real test on the POCO F6 (HID registration works on Android 16):

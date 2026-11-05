@@ -16,8 +16,22 @@ enum class ControlId(val label: String) {
     L3("L3"), R3("R3"), SELECT("Select"), START("Start"),
 }
 
+/**
+ * Visual style of the controller. Purely cosmetic: colours, body and button LABELS change, but every
+ * position always sends the same HID button (e.g. the bottom face button is HID button 2 in every
+ * style, shown as Cross, A or B). So emulator bindings stay valid when the style changes.
+ */
 @Serializable
-enum class ControllerBackground(val label: String) { DS2_BODY("DualShock body"), DARK("Dark"), BLACK("Black (OLED)"), BLUE("Midnight blue") }
+enum class ControllerSkin(val label: String, val tagline: String) {
+    PS2_CLASSIC("PS2 Classic", "The original DualShock 2 look"),
+    PS5_STYLE("PS5 Style", "Two-tone white, modern"),
+    XBOX_STYLE("Xbox Style", "Y B A X, LB/RB, dark green"),
+    RETRO("Retro", "Colourful 90s console"),
+    NEON("Neon", "Glowing outlines on black"),
+}
+
+@Serializable
+enum class ControllerBackground(val label: String) { DS2_BODY("Controller body"), DARK("Dark"), BLACK("Black (OLED)"), BLUE("Midnight blue") }
 
 @Serializable
 data class StickSettings(
@@ -73,14 +87,25 @@ data class Appearance(
     val background: ControllerBackground = ControllerBackground.DS2_BODY,
     val showLabels: Boolean = true,
     val haptics: Boolean = true,
+    val skin: ControllerSkin = ControllerSkin.PS2_CLASSIC,
+    /** Extra opacity per control (1 = fully visible), applied on top of [buttonOpacity]. */
+    val controlOpacity: Map<ControlId, Float> = emptyMap(),
 ) {
+    fun opacityOf(id: ControlId): Float = controlOpacity[id] ?: 1f
+
     fun sanitized() = copy(
         buttonScale = buttonScale.finiteOr(1f).coerceIn(0.6f, 1.6f),
         stickScale = stickScale.finiteOr(1f).coerceIn(0.6f, 1.6f),
         buttonOpacity = buttonOpacity.finiteOr(1f).coerceIn(0.2f, 1f),
         controllerOpacity = controllerOpacity.finiteOr(1f).coerceIn(0f, 1f),
         buttonSpacing = buttonSpacing.finiteOr(1f).coerceIn(0.8f, 1.3f),
+        controlOpacity = controlOpacity.mapValues { it.value.finiteOr(1f).coerceIn(MIN_CONTROL_OPACITY, 1f) }.filterValues { it < 1f },
     )
+
+    companion object {
+        /** Never fully invisible: a control you cannot see is a control you hit by accident. */
+        const val MIN_CONTROL_OPACITY = 0.1f
+    }
 }
 
 /**

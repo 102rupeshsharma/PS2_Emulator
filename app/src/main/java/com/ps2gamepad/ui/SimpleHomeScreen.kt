@@ -123,7 +123,7 @@ fun SimpleHomeScreen(vm: MainViewModel, actions: AppActions) {
                                 SimpleAction.RETRY_SETUP -> vm.register()
                                 SimpleAction.MAKE_VISIBLE -> { vm.applyPhoneName(); actions.makeDiscoverable() }
                                 SimpleAction.CONNECT_PC -> vm.connectKnownPc()
-                                SimpleAction.OPEN_CONTROLLER -> vm.navigate(Screen.CONTROLLER)
+                                SimpleAction.OPEN_CONTROLLER -> vm.openController()
                                 SimpleAction.NONE_WAIT -> Unit
                             }
                         }

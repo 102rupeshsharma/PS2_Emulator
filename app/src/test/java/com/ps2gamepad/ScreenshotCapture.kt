@@ -61,6 +61,14 @@ class ScreenshotCapture {
             hid.emit(HidEvent.AppStatusChanged(true)); hid.emit(HidEvent.ConnectionChanged(host, HidStateReducer.STATE_CONNECTED))
         }
         shoot("02_home_connected")
+        rule.runOnIdle {
+            vm.createLoadout("God of War"); vm.updateAppearance { it.copy(skin = com.ps2gamepad.model.ControllerSkin.PS5_STYLE) }; vm.setEditMode(false)
+            vm.createLoadout("GTA San Andreas"); vm.updateAppearance { it.copy(skin = com.ps2gamepad.model.ControllerSkin.XBOX_STYLE) }
+            vm.updateGyro { it.copy(enabled = true) }; vm.setEditMode(false)
+            vm.openController()
+        }
+        shoot("07_loadouts")
+        rule.runOnIdle { vm.playLoadout(com.ps2gamepad.settings.DefaultProfiles.STANDARD); vm.updateGyro { it.copy(enabled = false) } }
         rule.runOnIdle { vm.navigate(Screen.STYLES) }
         shoot("03_styles")
         for (sk in com.ps2gamepad.model.ControllerSkin.entries) {

@@ -181,6 +181,21 @@ open on the laptop (the right stick shows as **Z axis / Z rotation**).
 Automated (simulated sensors, MOCK Bluetooth): GyroTiltTest (11), GyroFusionTest (5), GyroEngineTest (6),
 GyroViewModelTest (10), GyroUiTest (2): all passed.
 
+## 4.8 Loadouts (1.4.0) ⏳
+
+| # | Test | Expected | Result |
+|---|---|---|---|
+| L1 | Open Controller | "Choose a loadout" appears every time | ⏳ |
+| L2 | New loadout "GTA" → arrange buttons → Save | Controller opens in Edit; layout saved in "GTA" | ⏳ |
+| L3 | Create "God of War" with a different layout/style/gyro | Each loadout shows its own preview | ⏳ |
+| L4 | Switch between them via the picker | Layout, style, opacity, gyro change accordingly | ⏳ |
+| L5 | Force-stop the app / reboot the phone | All loadouts and "LAST USED" kept | ⏳ |
+| L6 | Create 5, try a 6th | New card hidden; delete one → can create again | ⏳ |
+| L7 | PCSX2 with each loadout | Same bindings work (loadouts never change buttons) | ⏳ |
+
+Automated: LoadoutLimitTest (4), LoadoutViewModelTest (4, including per-loadout settings after a
+simulated restart), LoadoutUiTest (4): all passed.
+
 ## 5. Final acceptance checklist
 
 | # | Criterion | Status |

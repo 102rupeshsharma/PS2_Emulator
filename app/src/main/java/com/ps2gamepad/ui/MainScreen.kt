@@ -60,6 +60,7 @@ fun App(vm: MainViewModel, actions: AppActions) {
         val screen by vm.screen.collectAsStateWithLifecycle()
         when (screen) {
             Screen.HOME -> SimpleHomeScreen(vm, actions)
+            Screen.LOADOUTS -> LoadoutPickerScreen(vm)
             Screen.STYLES -> StylesScreen(vm)
             Screen.GYRO -> GyroScreen(vm)
             Screen.DASHBOARD -> DashboardScreen(vm, actions)
@@ -97,7 +98,7 @@ fun MainScreen(vm: MainViewModel, actions: AppActions) {
         Column(Modifier.weight(1f).fillMaxSize().verticalScroll(rememberScrollState())) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("Connection", color = Palette.Text, fontSize = 18.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                ActionButton("Open Controller", onClick = { vm.navigate(Screen.CONTROLLER) })
+                ActionButton("Open Controller", onClick = { vm.openController() })
                 ActionButton("Home", outlined = true, onClick = { vm.navigate(Screen.HOME) })
             }
             Spacer(Modifier.height(6.dp))

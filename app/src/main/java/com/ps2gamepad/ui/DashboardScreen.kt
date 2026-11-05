@@ -86,7 +86,7 @@ fun DashboardScreen(vm: MainViewModel, actions: AppActions) {
         }
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("Quick access", color = Palette.TextDim, fontSize = 12.sp)
-            BigButton("Open Controller", "dash_controller") { vm.navigate(Screen.CONTROLLER) }
+            BigButton("Open Controller", "dash_controller") { vm.openController() }
             BigButton("Connection (register / pair / connect)", "dash_connection", outlined = true) { vm.navigate(Screen.CONNECTION) }
             BigButton("Customize controller", "dash_customize", outlined = true) { vm.navigate(Screen.CUSTOMIZE) }
             BigButton("Profiles", "dash_profiles", outlined = true) { vm.navigate(Screen.PROFILES) }

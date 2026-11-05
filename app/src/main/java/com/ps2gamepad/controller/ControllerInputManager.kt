@@ -1,0 +1,131 @@
+package com.ps2gamepad.controller
+
+import com.ps2gamepad.bluetooth.HidReportManager
+import com.ps2gamepad.model.ControllerButton
+import com.ps2gamepad.model.Dpad
+import com.ps2gamepad.model.GamepadState
+import com.ps2gamepad.model.Stick
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+
+/**
+ * Software timing of report generation (state -> encode -> hand to the sender queue), in ns.
+ * Written under the manager's lock, read by the diagnostics screen. Does NOT include Bluetooth
+ * transmission (see SenderStats) or anything on the PC.
+ */
+class ReportTiming {
+    @Volatile var count: Long = 0; private set
+    @Volatile var totalNanos: Long = 0; private set
+    @Volatile var maxNanos: Long = 0; private set
+    fun record(ns: Long) { count++; totalNanos += ns; if (ns > maxNanos) maxNanos = ns }
+    val avgMicros: Double get() = if (count == 0L) 0.0 else totalNanos / count / 1000.0
+    val maxMicros: Double get() = maxNanos / 1000.0
+    fun reset() { count = 0; totalNanos = 0; maxNanos = 0 }
+}
+
+/** Where reports go. Returns false when nothing is connected and the report was dropped. */
+fun interface ReportSink {
+    fun send(report: ByteArray, eventUptimeMs: Long): Boolean
+}
+
+/**
+ * The single source of truth for the controller state. Every UI control (and the Phase 1 test
+ * buttons) changes state only through this class. Each change produces at most one HID report.
+ *
+ * Controls are responsible for their own pointers and call in with their aggregated result,
+ * e.g. "D-pad = up+right" or "Cross pressed". [releaseAll] bumps [resetEpoch]; controls key their
+ * pointer tracking on it, so fingers that were down during a reset are ignored until lifted.
+ *
+ * Thread-safe: all mutations take one lock (touch input arrives on the main thread, while
+ * resets can come from Bluetooth callbacks).
+ */
+class ControllerInputManager(
+    private val sink: ReportSink,
+    /** Minimum change in axis counts before an analog-only report is sent. 1 = every change. */
+    private val axisThreshold: Int = 1,
+    private val clock: () -> Long = { System.nanoTime() / 1_000_000 },
+) {
+    private val lock = Any()
+
+    private val _state = MutableStateFlow(GamepadState.NEUTRAL)
+    val state: StateFlow<GamepadState> = _state.asStateFlow()
+
+    private val _resetEpoch = MutableStateFlow(0)
+    val resetEpoch: StateFlow<Int> = _resetEpoch.asStateFlow()
+
+    private val pointerCounts = HashMap<String, Int>()
+    private val _activePointers = MutableStateFlow(0)
+    val activePointers: StateFlow<Int> = _activePointers.asStateFlow()
+
+    private val _lastReport = MutableStateFlow<ByteArray?>(null)
+    /** Last report the sink accepted. */
+    val lastReport: StateFlow<ByteArray?> = _lastReport.asStateFlow()
+
+    val timing = ReportTiming()
+
+    /** State the host last received; null = unknown, so the next change is always sent. */
+    private var lastSent: GamepadState? = null
+
+    fun setButton(button: ControllerButton, pressed: Boolean, eventUptimeMs: Long = clock()) =
+        mutate(eventUptimeMs) { it.withButton(button, pressed) }
+
+    fun setDpad(dpad: Dpad, eventUptimeMs: Long = clock()) =
+        mutate(eventUptimeMs) { it.copy(dpad = dpad) }
+
+    /** [vector] components in [-1, 1], already through the dead zone. */
+    fun setStick(stick: Stick, vector: StickVector, eventUptimeMs: Long = clock()) =
+        mutate(eventUptimeMs) { it.withStick(stick, StickMath.toAxis(vector.x), StickMath.toAxis(vector.y)) }
+
+    /** Releases every input, sends a neutral report and invalidates all active touches. */
+    fun releaseAll() {
+        synchronized(lock) {
+            pointerCounts.clear()
+            _activePointers.value = 0
+            _state.value = GamepadState.NEUTRAL
+            _resetEpoch.value = _resetEpoch.value + 1
+            lastSent = null // force the neutral report out even if we think the host has it
+            trySend(GamepadState.NEUTRAL, clock())
+        }
+    }
+
+    /** Host connection is gone: forget what it had, so it gets a full report after reconnecting. */
+    fun onHostLost() = synchronized(lock) { lastSent = null }
+
+    /** Diagnostic only: number of fingers currently owned by the control [source]. */
+    fun reportPointers(source: String, count: Int) = synchronized(lock) {
+        if (count <= 0) pointerCounts.remove(source) else pointerCounts[source] = count
+        _activePointers.value = pointerCounts.values.sum()
+    }
+
+    private inline fun mutate(eventUptimeMs: Long, f: (GamepadState) -> GamepadState) {
+        synchronized(lock) {
+            val next = f(_state.value)
+            if (next == _state.value && lastSent == next) return
+            _state.value = next
+            if (shouldSend(lastSent, next)) trySend(next, eventUptimeMs)
+        }
+    }
+
+    private fun shouldSend(prev: GamepadState?, next: GamepadState): Boolean {
+        if (prev == null) return true
+        if (prev.buttons != next.buttons || prev.dpad.hat != next.dpad.hat) return true
+        return StickMath.axisChangedSignificantly(prev.leftX, next.leftX, axisThreshold) ||
+            StickMath.axisChangedSignificantly(prev.leftY, next.leftY, axisThreshold) ||
+            StickMath.axisChangedSignificantly(prev.rightX, next.rightX, axisThreshold) ||
+            StickMath.axisChangedSignificantly(prev.rightY, next.rightY, axisThreshold)
+    }
+
+    private fun trySend(state: GamepadState, eventUptimeMs: Long) {
+        val t0 = System.nanoTime()
+        val report = HidReportManager.encode(state)
+        val accepted = sink.send(report, eventUptimeMs)
+        if (accepted) timing.record(System.nanoTime() - t0)
+        if (accepted) {
+            lastSent = state
+            _lastReport.value = report
+        } else {
+            lastSent = null
+        }
+    }
+}

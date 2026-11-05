@@ -1,0 +1,14 @@
+.gradle/
+.kotlin/
+build/
+app/build/
+local.properties
+.idea/
+*.iml
+# local build outputs (the published APK lives in download/)
+release/
+# signing secrets - never commit
+signing/
+keystore.properties
+*.jks
+*.keystore

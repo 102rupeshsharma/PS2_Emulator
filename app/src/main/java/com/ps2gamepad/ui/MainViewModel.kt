@@ -1,0 +1,362 @@
+package com.ps2gamepad.ui
+
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.ps2gamepad.bluetooth.HidController
+import com.ps2gamepad.bluetooth.SenderStats
+import com.ps2gamepad.controller.ControllerInputManager
+import com.ps2gamepad.controller.LayoutEngine
+import com.ps2gamepad.model.Appearance
+import com.ps2gamepad.model.ControlId
+import com.ps2gamepad.model.ControllerProfile
+import com.ps2gamepad.model.LastConnection
+import com.ps2gamepad.model.Placement
+import com.ps2gamepad.model.ProfileStore
+import com.ps2gamepad.model.Stick
+import com.ps2gamepad.model.StickSettings
+import com.ps2gamepad.settings.InMemoryTextStorage
+import com.ps2gamepad.settings.ProfileManager
+import com.ps2gamepad.settings.SettingsRepository
+import com.ps2gamepad.model.BluetoothState
+import com.ps2gamepad.model.ConnectionState
+import com.ps2gamepad.model.ControllerButton
+import com.ps2gamepad.model.DiagnosticLog
+import com.ps2gamepad.model.GamepadState
+import com.ps2gamepad.model.HidState
+import com.ps2gamepad.model.HostDevice
+import com.ps2gamepad.model.PermissionState
+import com.ps2gamepad.model.RegistrationState
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
+
+enum class Screen { DASHBOARD, CONNECTION, CONTROLLER, DIAGNOSTICS, CUSTOMIZE, PROFILES, CALIBRATION }
+
+/** A controller session, for measured (not estimated) battery and duration figures. */
+data class Session(val startUptimeMs: Long, val startBattery: Int?)
+
+/**
+ * Glue between the Bluetooth layer, the input manager and the UI. Holds no Android framework
+ * objects, so it can be unit tested with a fake [HidController].
+ */
+class MainViewModel(
+    private val hid: HidController,
+    val bluetoothState: StateFlow<BluetoothState>,
+    private val bondedHostsProvider: () -> List<HostDevice>,
+    val log: DiagnosticLog,
+    val compatibility: List<String>,
+    uptimeMs: () -> Long,
+    private val reconnectDelaysMs: List<Long> = listOf(2_000, 5_000, 10_000),
+    private val cleanup: () -> Unit = {},
+    settingsRepository: SettingsRepository? = null,
+    private val wallClockMs: () -> Long = System::currentTimeMillis,
+    val batteryPercent: () -> Int? = { null },
+    private val newId: () -> String = { java.util.UUID.randomUUID().toString().take(8) },
+) : ViewModel() {
+
+    private val uptime = uptimeMs
+    val settings: SettingsRepository = settingsRepository ?: SettingsRepository(InMemoryTextStorage(), viewModelScope)
+    val profiles: StateFlow<ProfileStore> = settings.store
+    val activeProfile: StateFlow<ControllerProfile> =
+        settings.store.map { it.active }.stateIn(viewModelScope, SharingStarted.Eagerly, settings.store.value.active)
+
+    val hidState: StateFlow<HidState> = hid.state
+    val senderStats: StateFlow<SenderStats> = hid.stats
+
+    val input = ControllerInputManager(sink = { report, t -> hid.sendReport(report, t) }, clock = uptimeMs)
+    val gamepad: StateFlow<GamepadState> = input.state
+
+    private val _permission = MutableStateFlow(PermissionState.REQUIRED)
+    val permission: StateFlow<PermissionState> = _permission.asStateFlow()
+
+    private val _screen = MutableStateFlow(Screen.DASHBOARD)
+    val screen: StateFlow<Screen> = _screen.asStateFlow()
+
+    private val _bondedHosts = MutableStateFlow<List<HostDevice>>(emptyList())
+    val bondedHosts: StateFlow<List<HostDevice>> = _bondedHosts.asStateFlow()
+
+    private val _editMode = MutableStateFlow(false)
+    /** Layout editor active: controls are not interactive and send nothing. */
+    val editMode: StateFlow<Boolean> = _editMode.asStateFlow()
+
+    private val _connectedSince = MutableStateFlow<Long?>(null)
+    /** Uptime (ms) when the current connection was confirmed by the stack; null when not connected. */
+    val connectedSince: StateFlow<Long?> = _connectedSince.asStateFlow()
+
+    private val _session = MutableStateFlow<Session?>(null)
+    val session: StateFlow<Session?> = _session.asStateFlow()
+
+    fun uptimeNow(): Long = uptime()
+
+    /** True while the user wants the HID app registered (survives stack-initiated unregistration). */
+    private var wantRegistered = false
+    private var userDisconnected = false
+    private var lastHost: HostDevice? = null
+    private var reconnectJob: Job? = null
+    private var inForeground = false
+    /** Automatic re-registrations since the last user action or successful connection (loop guard). */
+    private var autoRegisterAttempts = 0
+    private var previous: HidState = hid.state.value
+
+    init {
+        compatibility.forEach { log.add(it) }
+        viewModelScope.launch { hid.state.collect(::onHidState) }
+        viewModelScope.launch { bluetoothState.collect(::onBluetoothState) }
+    }
+
+    // ------------------------------------------------------------------ inputs from the Activity
+
+    fun onPermissionsChanged(granted: Boolean) {
+        val newState = if (granted) PermissionState.GRANTED else PermissionState.REQUIRED
+        if (newState != _permission.value) log.add("Bluetooth permissions: ${if (granted) "granted" else "required"}")
+        _permission.value = newState
+        if (granted) refreshBondedHosts()
+    }
+
+    /** Activity resumed. The stack unregisters HID apps that leave the foreground, so restore it. */
+    fun onForeground() {
+        inForeground = true
+        refreshBondedHosts()
+        if (wantRegistered && hidState.value.registration == RegistrationState.NotRegistered) {
+            log.add("Back in foreground: HID registration was dropped by the system, registering again")
+            autoRegister()
+        }
+    }
+
+    /** Activity stopped (not visible). Android drops HID registrations of background apps. */
+    fun onBackground() {
+        inForeground = false
+        input.releaseAll()
+    }
+
+    /** Activity paused / lost window focus: never leave buttons held on the host. */
+    fun onInterrupted(reason: String) {
+        if (input.state.value != GamepadState.NEUTRAL || input.activePointers.value > 0) {
+            log.add("Input interrupted ($reason): all inputs released")
+        }
+        input.releaseAll()
+    }
+
+    // ------------------------------------------------------------------ user actions
+
+    fun register() {
+        wantRegistered = true
+        autoRegisterAttempts = 0
+        registerInternal()
+    }
+
+    private fun autoRegister() {
+        if (autoRegisterAttempts >= MAX_AUTO_REGISTER) {
+            log.add("Not re-registering automatically: dropped $autoRegisterAttempts times in a row. Tap Register HID Device.")
+            wantRegistered = false
+            return
+        }
+        autoRegisterAttempts++
+        registerInternal()
+    }
+
+    private fun registerInternal() {
+        when {
+            bluetoothState.value != BluetoothState.ENABLED -> log.add("Cannot register: ${bluetoothState.value.label}")
+            permission.value != PermissionState.GRANTED -> log.add("Cannot register: Bluetooth permission required")
+            else -> { log.add("Registering HID gamepad..."); hid.register(autoConnectPlugged = !userDisconnected) }
+        }
+    }
+
+    fun unregister() {
+        wantRegistered = false
+        userDisconnected = true
+        reconnectJob?.cancel()
+        input.releaseAll()
+        log.add("Unregistering HID gamepad")
+        hid.unregister()
+    }
+
+    fun connect(host: HostDevice) {
+        userDisconnected = false
+        lastHost = host
+        log.add("Connecting to ${host.displayName}")
+        hid.connect(host.address)
+    }
+
+    fun disconnect() {
+        userDisconnected = true
+        reconnectJob?.cancel()
+        input.releaseAll()
+        hid.disconnect()
+    }
+
+    fun refreshBondedHosts() {
+        if (permission.value == PermissionState.GRANTED) _bondedHosts.value = bondedHostsProvider()
+    }
+
+    /** Phase 1 diagnostic buttons: toggle HID buttons 1-3. */
+    fun toggleTestButton(index: Int) {
+        val button = when (index) { 1 -> ControllerButton.SQUARE; 2 -> ControllerButton.CROSS; 3 -> ControllerButton.CIRCLE; else -> return }
+        val pressed = !input.state.value.isPressed(button)
+        input.setButton(button, pressed)
+        log.add("Test Button $index (HID button ${button.hidButton}) ${if (pressed) "pressed" else "released"}" + sentSuffix())
+    }
+
+    fun releaseAllInputs() {
+        input.releaseAll()
+        log.add("Release All: neutral report" + sentSuffix())
+    }
+
+    private fun sentSuffix() = if (hidState.value.isConnected) "" else " (not sent: no host connected)"
+
+    // ------------------------------------------------------------------ customisation & profiles
+
+    fun updateAppearance(f: (Appearance) -> Appearance) =
+        settings.update { s -> ProfileManager.updateActive(s) { it.copy(appearance = f(it.appearance)) } }
+
+    fun updateStick(stick: Stick, f: (StickSettings) -> StickSettings) = settings.update { s ->
+        ProfileManager.updateActive(s) { if (stick == Stick.LEFT) it.copy(left = f(it.left)) else it.copy(right = f(it.right)) }
+    }
+
+    fun savePlacements(placements: Map<ControlId, Placement>) =
+        settings.update { s -> ProfileManager.updateActive(s) { it.copy(placements = placements) } }
+
+    fun resetLayout() {
+        settings.update { s -> ProfileManager.updateActive(s) { it.copy(placements = emptyMap()) } }
+        log.add("Layout reset to default positions")
+    }
+
+    fun resetAppearance() = settings.update { s -> ProfileManager.updateActive(s) { it.copy(appearance = Appearance()) } }
+
+    fun switchProfile(id: String) {
+        input.releaseAll()
+        settings.update { ProfileManager.switchTo(it, id) }
+    }
+    fun createProfile(name: String) = settings.update { ProfileManager.create(it, name, newId) }
+    fun duplicateProfile(id: String) = settings.update { ProfileManager.duplicate(it, id, newId) }
+    fun renameProfile(id: String, name: String) = settings.update { ProfileManager.rename(it, id, name) }
+    fun deleteProfile(id: String) = settings.update { ProfileManager.delete(it, id) }
+    fun restoreProfileDefaults(id: String) = settings.update { ProfileManager.restoreDefaults(it, id) }
+
+    /** Stores the thumb's natural resting point (fraction of travel) as the fixed-mode centre. */
+    fun calibrateCenter(stick: Stick, offsetX: Float, offsetY: Float) {
+        updateStick(stick) { it.copy(centerOffsetX = offsetX, centerOffsetY = offsetY) }
+        log.add("Calibrated $stick stick centre: (%.2f, %.2f)".format(offsetX, offsetY))
+    }
+
+    fun setEditMode(on: Boolean) {
+        input.releaseAll() // nothing may stay held while controls move
+        _editMode.value = on
+    }
+
+    /** Overlapping controls in the active layout for a screen of [w] x [h] dp. */
+    fun layoutOverlaps(w: Float, h: Float) = activeProfile.value.let {
+        LayoutEngine.overlaps(LayoutEngine.resolve(w, h, it.appearance, it.placements))
+    }
+
+    fun reconnect() {
+        val host = lastHost ?: profiles.value.lastConnection?.let { lc -> lc.address?.let { HostDevice(it, lc.hostName) } }
+        if (host == null) { log.add("Reconnect: no previous host known"); return }
+        connect(host)
+    }
+
+    val lastKnownHostName: String? get() = lastHost?.displayName ?: profiles.value.lastConnection?.hostName
+
+    fun navigate(to: Screen) {
+        if (to != _screen.value) input.releaseAll()
+        if (to != Screen.CONTROLLER) _editMode.value = false
+        if (to == Screen.CONTROLLER && _session.value == null) _session.value = Session(uptime(), batteryPercent())
+        _screen.value = to
+    }
+
+    fun resetSession() { _session.value = Session(uptime(), batteryPercent()) }
+
+    /** Persist pending settings now (app going to the background). */
+    fun flushSettings() = settings.flush()
+
+    // ------------------------------------------------------------------ state reactions
+
+    private fun onBluetoothState(s: BluetoothState) {
+        log.add("Adapter: ${s.label}")
+        when (s) {
+            BluetoothState.TURNING_OFF, BluetoothState.DISABLED -> {
+                reconnectJob?.cancel()
+                input.releaseAll()
+                hid.onBluetoothOff()
+            }
+            BluetoothState.ENABLED -> {
+                refreshBondedHosts()
+                if (wantRegistered && hidState.value.registration == RegistrationState.NotRegistered) {
+                    log.add("Bluetooth back on: registering again")
+                    autoRegister()
+                }
+            }
+            else -> Unit
+        }
+    }
+
+    private fun onHidState(s: HidState) {
+        val prev = previous
+        previous = s
+        if (prev.registration != s.registration) log.add("Registration: ${s.registration.label}")
+        if (prev.connection != s.connection) log.add("Connection: ${s.connection.label}")
+
+        if (s.registration is RegistrationState.Failed) wantRegistered = false
+        // Registration dropped by the system while we are visible (e.g. a dialog briefly took the
+        // foreground). In the background we wait for onForeground() instead.
+        if (prev.registration == RegistrationState.Registered && s.registration == RegistrationState.NotRegistered &&
+            wantRegistered && inForeground && bluetoothState.value == BluetoothState.ENABLED
+        ) {
+            log.add("HID registration dropped by the system, registering again")
+            autoRegister()
+        }
+
+        val wasConnected = prev.connection is ConnectionState.Connected
+        if (s.isConnected && !wasConnected) {
+            _connectedSince.value = uptime()
+            s.connectedHost?.let { h ->
+                settings.update { ProfileManager.recordConnection(it, LastConnection(h.displayName, wallClockMs(), h.address)) }
+            }
+            reconnectJob?.cancel()
+            userDisconnected = false
+            autoRegisterAttempts = 0
+            lastHost = s.connectedHost
+            // Fresh baseline for the host (HidDeviceManager also queues one).
+            input.releaseAll()
+        } else if (wasConnected && !s.isConnected) {
+            _connectedSince.value = null
+            // Stop, clear touches, reset state. The sink already drops reports while disconnected.
+            input.releaseAll()
+            input.onHostLost()
+            log.add("WARNING: host connection lost - inputs reset")
+            scheduleReconnect()
+        }
+    }
+
+    private fun scheduleReconnect() {
+        val host = lastHost ?: return
+        if (userDisconnected || !wantRegistered) return
+        reconnectJob?.cancel()
+        reconnectJob = viewModelScope.launch {
+            for ((i, d) in reconnectDelaysMs.withIndex()) {
+                delay(d)
+                val st = hidState.value
+                if (st.isConnected || !wantRegistered || userDisconnected) return@launch
+                if (st.registration != RegistrationState.Registered || bluetoothState.value != BluetoothState.ENABLED) continue
+                log.add("Auto-reconnect attempt ${i + 1}/${reconnectDelaysMs.size} to ${host.displayName}")
+                hid.connect(host.address)
+            }
+        }
+    }
+
+    companion object { const val MAX_AUTO_REGISTER = 3 }
+
+    override fun onCleared() {
+        reconnectJob?.cancel()
+        input.releaseAll()
+        cleanup()
+        hid.close()
+    }
+}

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.BluetoothGamepad" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">#FF101114</item>
+        <item name="android:statusBarColor">#FF101114</item>
+        <item name="android:navigationBarColor">#FF101114</item>
+        <item name="android:windowLayoutInDisplayCutoutMode">shortEdges</item>
+    </style>
+</resources>

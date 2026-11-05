@@ -99,7 +99,8 @@ fun ControllerScreen(vm: MainViewModel) {
             return@BoxWithConstraints
         }
         val rects = remember(w, h, profile.appearance, profile.placements) { LayoutEngine.resolve(w, h, profile.appearance, profile.placements) }
-        ControllerLayout(vm.input, epoch, profile, rects, interactive = true)
+        val gyroActive by vm.gyroSending.collectAsStateWithLifecycle()
+        ControllerLayout(vm.input, epoch, profile, rects, interactive = true, gyroActive = gyroActive, onGyroRecenter = vm::gyroRecenter)
 
         Row(
             Modifier.align(Alignment.TopCenter).padding(top = 6.dp),
@@ -109,6 +110,7 @@ fun ControllerScreen(vm: MainViewModel) {
             ConnectionChip(status, Modifier.testTag("connectionChip"))
             SmallChipButton(if (showOverlay) "Hide" else "Live") { showOverlay = !showOverlay }
             SmallChipButton("Edit") { vm.setEditMode(true) }
+            if (gyroActive) SmallChipButton("Recenter") { vm.gyroRecenter() }
         }
         if (!hid.isConnected) {
             Text(
@@ -139,6 +141,9 @@ fun ControllerLayout(
     profile: ControllerProfile,
     rects: Map<ControlId, ControlRect>,
     interactive: Boolean,
+    /** Gyro drives the right stick: show the live gyro indicator instead of the touch stick. */
+    gyroActive: Boolean = false,
+    onGyroRecenter: () -> Unit = {},
 ) {
     val a = profile.appearance
     val skin = Skins.of(a.skin)
@@ -162,7 +167,8 @@ fun ControllerLayout(
             DpadControl(input, epoch, Modifier.at(ControlId.DPAD).testTag("dpad"))
             FaceButtons(input, epoch, Modifier.at(ControlId.FACE).testTag("face"))
             AnalogStick(Stick.LEFT, input, epoch, profile.left, Modifier.at(ControlId.LEFT_STICK).testTag("stick_left"))
-            AnalogStick(Stick.RIGHT, input, epoch, profile.right, Modifier.at(ControlId.RIGHT_STICK).testTag("stick_right"))
+            if (gyroActive) GyroStickIndicator(input, onGyroRecenter, Modifier.at(ControlId.RIGHT_STICK).testTag("gyro_indicator"))
+            else AnalogStick(Stick.RIGHT, input, epoch, profile.right, Modifier.at(ControlId.RIGHT_STICK).testTag("stick_right"))
             DigitalButton(ControllerButton.L3, input, epoch, skin.labelL3, KeyShape.CIRCLE, fs(ControlId.L3, 0.3f), Modifier.at(ControlId.L3).testTag("btn_L3"))
             DigitalButton(ControllerButton.R3, input, epoch, skin.labelR3, KeyShape.CIRCLE, fs(ControlId.R3, 0.3f), Modifier.at(ControlId.R3).testTag("btn_R3"))
             DigitalButton(ControllerButton.SELECT, input, epoch, skin.labelSelect, KeyShape.PILL, fs(ControlId.SELECT, 0.34f), Modifier.at(ControlId.SELECT).testTag("btn_SELECT"))
@@ -331,5 +337,31 @@ private fun PadBody(skin: SkinTheme, modifier: Modifier) {
         // centre panel (touchpad area on the PS5 style), with an accent light bar
         drawRoundRect(skin.centerPanel, topLeft = Offset(w * 0.37f, h * 0.15f), size = Size(w * 0.26f, h * 0.33f), cornerRadius = CornerRadius(h * 0.06f))
         drawRoundRect(skin.accent.copy(alpha = 0.85f), topLeft = Offset(w * 0.44f, h * 0.135f), size = Size(w * 0.12f, h * 0.012f), cornerRadius = CornerRadius(h * 0.01f))
+    }
+}
+
+/**
+ * Right stick when the gyro drives it: shows the value that is in the HID report (read in the
+ * draw phase, so only this canvas redraws). Not a touch control: tap = recenter.
+ */
+@Composable
+private fun GyroStickIndicator(input: ControllerInputManager, onRecenter: () -> Unit, modifier: Modifier) {
+    val state = input.state.collectAsStateWithLifecycle()
+    val skin = LocalSkin.current
+    Box(modifier.clickable(onClick = onRecenter), contentAlignment = Alignment.BottomCenter) {
+        Canvas(Modifier.fillMaxSize()) {
+            val s = size.minDimension
+            val travel = s * STICK_TRAVEL
+            val c = center
+            drawCircle(skin.keyEdge, radius = travel + s * 0.06f, center = c)
+            drawCircle(skin.stickBase, radius = travel + s * 0.045f, center = c)
+            drawCircle(skin.accent.copy(alpha = 0.8f), radius = travel + s * 0.05f, center = c, style = androidx.compose.ui.graphics.drawscope.Stroke(s * 0.012f))
+            val g = state.value
+            val k = c + Offset(g.rightX / 127f * travel, g.rightY / 127f * travel)
+            val kr = s * 0.15f
+            drawCircle(Brush.radialGradient(listOf(skin.stickKnobLight, skin.stickKnobDark), center = k, radius = kr * 1.4f), radius = kr, center = k)
+            drawCircle(skin.accent, radius = kr, center = k, style = androidx.compose.ui.graphics.drawscope.Stroke(s * 0.01f))
+        }
+        Text("GYRO · tap to recenter", color = skin.label, fontSize = 9.sp, fontWeight = FontWeight.Bold)
     }
 }

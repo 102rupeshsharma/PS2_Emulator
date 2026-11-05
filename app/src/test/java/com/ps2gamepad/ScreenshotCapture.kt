@@ -48,8 +48,9 @@ class ScreenshotCapture {
     @Test fun captureScreens() {
         assumeTrue("run with -Pscreenshots", System.getProperty("screenshotDir") != null)
         val hid = FakeHid()
+        val motion = FakeMotionSource()
         val vm = MainViewModel(hid, MutableStateFlow(BluetoothState.ENABLED), { emptyList() }, DiagnosticLog(), listOf("screenshot"), { 0L },
-            batteryPercent = { 80 }, phoneNameControl = FakePhoneName())
+            batteryPercent = { 80 }, phoneNameControl = FakePhoneName(), motionSource = motion)
         rule.setContent { App(vm, AppActions({}, {}, {}, {})) }
         val host = HostDevice("00:00:00:00:00:01", "LAPTOP (mock)")
         shoot("00_home_permission")
@@ -67,6 +68,15 @@ class ScreenshotCapture {
             shoot("04_style_${sk.name.lowercase()}")
         }
         rule.runOnIdle { vm.updateAppearance { it.copy(skin = com.ps2gamepad.model.ControllerSkin.PS2_CLASSIC) } }
+        val n = com.ps2gamepad.motion.Vec3(0f, 0.7071f, 0.7071f)
+        rule.runOnIdle {
+            vm.onForeground(); vm.updateGyro { it.copy(enabled = true) }; vm.navigate(Screen.GYRO)
+            motion.hold(n, 30); vm.gyroRecenter(); motion.hold(n, 5); motion.hold(tiltedUp(n, 12f, -9f), 60)
+        }
+        shoot("05_gyro_screen")
+        rule.runOnIdle { vm.navigate(Screen.CONTROLLER); motion.hold(tiltedUp(n, 12f, -9f), 5) }
+        shoot("06_controller_gyro")
+        rule.runOnIdle { vm.updateGyro { it.copy(enabled = false) } }
         rule.runOnIdle { vm.navigate(Screen.DASHBOARD) }
         shoot("10_dashboard")
         rule.runOnIdle { vm.navigate(Screen.CONTROLLER) }

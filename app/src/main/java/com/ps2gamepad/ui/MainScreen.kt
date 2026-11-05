@@ -61,6 +61,7 @@ fun App(vm: MainViewModel, actions: AppActions) {
         when (screen) {
             Screen.HOME -> SimpleHomeScreen(vm, actions)
             Screen.STYLES -> StylesScreen(vm)
+            Screen.GYRO -> GyroScreen(vm)
             Screen.DASHBOARD -> DashboardScreen(vm, actions)
             Screen.CONNECTION -> MainScreen(vm, actions)
             Screen.CONTROLLER -> ControllerScreen(vm)

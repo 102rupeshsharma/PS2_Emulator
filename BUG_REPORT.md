@@ -42,6 +42,13 @@ Severity follows the Phase 4 scale (Critical / High / Medium / Low).
 | B25 | Medium | Earbuds ("realme Buds T500 Pro") were listed as a PC to connect to | User screenshot | Paired list filtered to Bluetooth class COMPUTER | `AutoModeViewModelTest.earbudsAreNotOfferedAsPc` |
 | B26 | Medium | An auto-connect scheduled at registration could fire after a later disconnect (duplicate connect attempt) | `MainViewModelTest` | Cancelled once connected | `MainViewModelTest.reconnectGivesUpAfterThreeAttempts` |
 
+## Fixed in 1.3.0
+
+| ID | Sev. | Bug | How found | Fix | Regression test |
+|---|---|---|---|---|---|
+| B27 | High | Gyro: after an input reset (screen change, reconnect, back press) a held, unmoving tilt was not sent again, so the right stick stayed centred until the phone moved | Screenshot of the controller during development | The jitter filter remembers the input-reset counter; any reset forces the current tilt out | `GyroViewModelTest.heldTiltIsResentAfterAnInputReset` |
+| B28 | Medium | Loading saved settings dropped the gyro calibration (the repair step rebuilt the store without it) | Code review while adding the field | Neutral kept and validated (finite, non-zero) | `GyroViewModelTest.recenterIsSavedForNextTime` + codec |
+
 ## Open / not fixed
 
 | ID | Sev. | Issue | Why open | Workaround |

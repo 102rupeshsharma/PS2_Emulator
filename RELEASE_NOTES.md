@@ -1,5 +1,27 @@
 # Release notes
 
+## 1.3.0 (versionCode 7), 2026-11-05: gyro right stick
+
+- **360° gyroscope right stick.** Phone tilt drives the RIGHT analog stick continuously in every direction.
+  It is position-based like a real stick: a held tilt keeps the stick displaced (the camera keeps
+  turning), and returning to neutral centres it. It is not angular-velocity / mouse-like.
+  - Sensor fusion: gyroscope (fast) + accelerometer (anchors "down"), so the neutral cannot drift.
+    Accelerometer samples taken while shaking get less weight.
+  - Tilt is measured relative to the calibrated hold. Any holding angle works (flat, 45°, upright).
+  - Mapping reuses the stick maths: radial dead zone without a jump, sensitivity, max tilt angle,
+    circular clamp (|v| ≤ 1, direction kept), smoothing, invert X/Y.
+  - Recenter (instant) and Calibrate (1.5 s average). The neutral is saved and shared by all profiles.
+  - Sensors run only on the controller (gyro on) or the gyro test screen, with the app visible.
+    Otherwise they are off, and a centred right stick is sent.
+  - Jitter filter: changes under 2 HID counts are not sent; centre and full deflection are always sent.
+- **New Gyro screen:** live circle (the value in the HID report), X/Y, HID values, magnitude, direction,
+  tilt angles, sensor status and rate, and all settings.
+- **Controller:** with the gyro on, the touch right stick is replaced by a GYRO indicator (tap = recenter),
+  plus a Recenter chip. The HID descriptor and report format are unchanged, so no re-pairing is needed.
+- **Fixed (found by a screenshot):** a held tilt was not re-sent after an input reset (screen change, reconnect).
+- Tests: 245 (243 passed, 2 skipped). Gyro maths, fusion, engine and ViewModel integration are tested
+  with simulated sensors; nothing is verified on the phone yet.
+
 ## 1.2.0 (versionCode 6), 2026-11-05: premium styles
 
 - **5 controller styles:** PS2 Classic, PS5 Style (two-tone white, CREATE/OPTIONS), Xbox Style

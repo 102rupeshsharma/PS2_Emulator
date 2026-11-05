@@ -169,9 +169,10 @@ fun SimpleHomeScreen(vm: MainViewModel, actions: AppActions) {
                     Text("Profile: ${profile.name}", color = Palette.TextDim, fontSize = 11.sp)
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    HomeTile("Styles", "5 premium looks", Color(0xFF8E5CFF), Modifier.weight(1f).testTag("homeStyles")) { vm.navigate(Screen.STYLES) }
+                    HomeTile("Styles", "5 looks", Color(0xFF8E5CFF), Modifier.weight(1f).testTag("homeStyles")) { vm.navigate(Screen.STYLES) }
+                    HomeTile("Gyro", if (profile.gyro.enabled) "Tilt aim: ON" else "Tilt aim: off", Color(0xFF06B6D4), Modifier.weight(1f).testTag("homeGyro")) { vm.navigate(Screen.GYRO) }
                     HomeTile("Customize", "Size · opacity", Color(0xFF22C55E), Modifier.weight(1f).testTag("homeCustomize")) { vm.navigate(Screen.CUSTOMIZE) }
-                    HomeTile("More", "Profiles · settings", Color(0xFFF59E0B), Modifier.weight(1f).testTag("homeMore")) { vm.navigate(Screen.DASHBOARD) }
+                    HomeTile("More", "Profiles", Color(0xFFF59E0B), Modifier.weight(1f).testTag("homeMore")) { vm.navigate(Screen.DASHBOARD) }
                 }
             }
         }

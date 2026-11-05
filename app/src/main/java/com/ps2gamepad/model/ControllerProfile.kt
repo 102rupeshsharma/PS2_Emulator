@@ -117,6 +117,45 @@ data class Placement(val cx: Float, val cy: Float, val scale: Float = 1f) {
     fun sanitized() = Placement(cx.finiteOr(0.5f).coerceIn(0f, 1f), cy.finiteOr(0.5f).coerceIn(0f, 1f), scale.finiteOr(1f).coerceIn(0.5f, 2f))
 }
 
+/**
+ * Gyroscope right stick: tilting the phone moves the right analog stick like a physical stick
+ * (position-based: hold a tilt and the stick stays displaced; back to neutral and it centres).
+ */
+@Serializable
+data class GyroSettings(
+    val enabled: Boolean = false,
+    /** Output multiplier after the dead zone. */
+    val sensitivity: Float = 1.0f,
+    /** Tilt (degrees from neutral) that gives full deflection. */
+    val maxTiltDeg: Float = 25f,
+    /** Tilt (degrees) ignored around neutral, so hand tremor never moves the camera. */
+    val deadZoneDeg: Float = 2f,
+    /** 0 = raw, 1 = heavy smoothing (time constant up to 0.2 s). */
+    val smoothing: Float = 0.25f,
+    val invertX: Boolean = false,
+    val invertY: Boolean = false,
+) {
+    fun sanitized(): GyroSettings {
+        val max = maxTiltDeg.finiteOr(25f).coerceIn(MIN_TILT, MAX_TILT)
+        return copy(
+            sensitivity = sensitivity.finiteOr(1f).coerceIn(0.25f, 3f),
+            maxTiltDeg = max,
+            deadZoneDeg = deadZoneDeg.finiteOr(2f).coerceIn(0f, minOf(MAX_DEAD_ZONE, max * 0.5f)),
+            smoothing = smoothing.finiteOr(0.25f).coerceIn(0f, 1f),
+        )
+    }
+
+    companion object {
+        const val MIN_TILT = 5f
+        const val MAX_TILT = 60f
+        const val MAX_DEAD_ZONE = 10f
+    }
+}
+
+/** Calibrated neutral hold: gravity direction in SCREEN coordinates (unit vector). */
+@Serializable
+data class GyroNeutral(val x: Float, val y: Float, val z: Float)
+
 @Serializable
 data class ControllerProfile(
     val id: String,
@@ -128,6 +167,7 @@ data class ControllerProfile(
     val right: StickSettings = StickSettings(),
     /** Only controls the user moved; everything else uses the default layout. */
     val placements: Map<ControlId, Placement> = emptyMap(),
+    val gyro: GyroSettings = GyroSettings(),
 ) {
     fun sanitized() = copy(
         name = name.trim().take(MAX_NAME).ifEmpty { "Profile" },
@@ -135,6 +175,7 @@ data class ControllerProfile(
         left = left.sanitized(),
         right = right.sanitized(),
         placements = placements.mapValues { it.value.sanitized() },
+        gyro = gyro.sanitized(),
     )
 
     fun stick(s: Stick) = if (s == Stick.LEFT) left else right
@@ -148,6 +189,8 @@ data class ProfileStore(
     val profiles: List<ControllerProfile>,
     /** Last host that reached STATE_CONNECTED (shown on the dashboard). */
     val lastConnection: LastConnection? = null,
+    /** Gyro neutral hold, shared by all profiles (it is about how you hold the phone). */
+    val gyroNeutral: GyroNeutral? = null,
 ) {
     val active: ControllerProfile get() = profiles.firstOrNull { it.id == activeId } ?: profiles.first()
 }

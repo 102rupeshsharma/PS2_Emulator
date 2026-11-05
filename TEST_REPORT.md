@@ -158,6 +158,29 @@ Also check: PCSX2 detects the device (SDL) ⏳ · all bindings ⏳ · reconnect 
 | 60 min | | | | | | | | | ⏳ |
 | 2 h (optional) | | | | | | | | | ⏳ |
 
+## 4.7 Gyro right stick (1.3.0) ⏳
+
+Setup: Gyro tile → switch ON → hold the phone as you play → **Recenter**. Keep `joy.cpl` → Properties
+open on the laptop (the right stick shows as **Z axis / Z rotation**).
+
+| # | Test | Expected | Result |
+|---|---|---|---|
+| G1 | Neutral: calibrate, hold still | Gyro screen X=0 Y=0; joy.cpl Z/Z-rotation centred | ⏳ |
+| G2 | Tilt right / left / top edge away / top edge towards you | Only the matching axis moves; away = stick up | ⏳ |
+| G3 | 4 diagonals | Both axes move together; direction label matches | ⏳ |
+| G4 | Slowly circle the tilt through 360° (also 15°, 30°, 45°, 60°) | Circle indicator moves smoothly round, no jumps or snapping | ⏳ |
+| G5 | Slight / moderate / maximum tilt | Magnitude grows smoothly up to 1.00 | ⏳ |
+| G6 | Hold a tilt 10 s in a game | Camera keeps turning for the whole 10 s | ⏳ |
+| G7 | Return to the calibrated hold | Both axes back to 0 | ⏳ |
+| G8 | Rest the phone on a table 1 min; small hand tremor | Stays at 0 (dead zone), no creep | ⏳ |
+| G9 | joy.cpl: all directions, diagonals, intermediate positions | Z / Z-rotation follow the phone | ⏳ |
+| G10 | Regression: left stick, all buttons, D-pad, connection, with the gyro on | Unchanged; left stick + gyro at the same time | ⏳ |
+| G11 | Notification shade / home / lock while tilted | Right stick centres; sensors stop; back = resumes | ⏳ |
+| G12 | Settings: sensitivity, max tilt, dead zone, smoothing, invert X/Y; Calibrate (1.5 s) | Each has a visible effect; calibration kept after app restart | ⏳ |
+
+Automated (simulated sensors, MOCK Bluetooth): GyroTiltTest (11), GyroFusionTest (5), GyroEngineTest (6),
+GyroViewModelTest (10), GyroUiTest (2): all passed.
+
 ## 5. Final acceptance checklist
 
 | # | Criterion | Status |

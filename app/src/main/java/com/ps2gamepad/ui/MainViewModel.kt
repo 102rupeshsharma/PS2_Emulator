@@ -36,7 +36,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
-enum class Screen { HOME, STYLES, DASHBOARD, CONNECTION, CONTROLLER, DIAGNOSTICS, CUSTOMIZE, PROFILES, CALIBRATION }
+enum class Screen { HOME, STYLES, GYRO, DASHBOARD, CONNECTION, CONTROLLER, DIAGNOSTICS, CUSTOMIZE, PROFILES, CALIBRATION }
 
 /** A controller session, for measured (not estimated) battery and duration figures. */
 data class Session(val startUptimeMs: Long, val startBattery: Int?)
@@ -60,6 +60,7 @@ class MainViewModel(
     private val newId: () -> String = { java.util.UUID.randomUUID().toString().take(8) },
     private val phoneNameControl: com.ps2gamepad.bluetooth.PhoneNameControl? = null,
     private val autoConnectDelayMs: Long = 1_500,
+    private val motionSource: com.ps2gamepad.motion.MotionSource? = null,
 ) : ViewModel() {
 
     private val uptime = uptimeMs
@@ -95,6 +96,98 @@ class MainViewModel(
     val session: StateFlow<Session?> = _session.asStateFlow()
 
     fun uptimeNow(): Long = uptime()
+
+    // ------------------------------------------------------------------ gyroscope right stick
+
+    val gyroStatus: com.ps2gamepad.motion.MotionStatus = motionSource?.status ?: com.ps2gamepad.motion.MotionStatus(false, false)
+    private val _gyroReading = MutableStateFlow(com.ps2gamepad.motion.GyroReading.NONE)
+    /** Latest gyro reading (tilt, stick vector, status) for the gyro screen. */
+    val gyroReading: StateFlow<com.ps2gamepad.motion.GyroReading> = _gyroReading.asStateFlow()
+    private val _gyroSending = MutableStateFlow(false)
+    /** True while the gyro drives the right stick that goes to the PC. */
+    val gyroSending: StateFlow<Boolean> = _gyroSending.asStateFlow()
+    @Volatile private var gyroEngine: com.ps2gamepad.motion.GyroEngine? = null
+    private var windowFocused = true
+    /** Last right-stick axes forwarded from the gyro (jitter filter). */
+    @Volatile private var lastGyroAxes = 0 to 0
+    /** Input reset counter seen at the last gyro forward: a reset (screen change, reconnect...) forces a resend. */
+    @Volatile private var lastGyroEpoch = -1
+
+    fun updateGyro(f: (com.ps2gamepad.model.GyroSettings) -> com.ps2gamepad.model.GyroSettings) {
+        settings.update { s -> ProfileManager.updateActive(s) { it.copy(gyro = f(it.gyro)) } }
+        refreshMotion()
+    }
+
+    /** Use the current hold as neutral right now. */
+    fun gyroRecenter() { gyroEngine?.requestRecenter(); log.add("Gyro: recentred") }
+
+    /** Average the hold for 1.5 s (keep still) and use it as neutral. */
+    fun gyroCalibrate() { gyroEngine?.requestCalibration(); log.add("Gyro: calibrating, hold still") }
+
+    /** Window focus is back (after a dialog, the notification shade...). */
+    fun onFocusGained() { windowFocused = true; refreshMotion() }
+
+    /**
+     * Starts/stops the sensors and decides whether the gyro drives the right stick. The sensors run
+     * only on the controller (gyro on) and on the gyro test screen, with the app visible and focused.
+     * Whenever the gyro stops driving the stick, a centred right stick is sent.
+     */
+    fun refreshMotion() {
+        val source = motionSource ?: return
+        val gyro = settings.store.value.active.gyro
+        val screen = _screen.value
+        val visible = inForeground && windowFocused
+        val send = gyro.enabled && visible && source.status.usable &&
+            ((screen == Screen.CONTROLLER && !_editMode.value) || screen == Screen.GYRO)
+        val run = source.status.usable && visible && (send || screen == Screen.GYRO)
+
+        if (_gyroSending.value && !send) {
+            _gyroSending.value = false
+            input.setStick(Stick.RIGHT, com.ps2gamepad.controller.StickVector.ZERO)
+            lastGyroAxes = 0 to 0
+        }
+        if (run && gyroEngine == null) {
+            val engine = com.ps2gamepad.motion.GyroEngine(settings.store.value.gyroNeutral)
+            engine.settings = gyro
+            gyroEngine = engine
+            if (!source.start { sample -> onMotionSample(engine, sample) }) {
+                gyroEngine = null
+                log.add("Gyro: sensors not available")
+            }
+        } else if (!run && gyroEngine != null) {
+            source.stop()
+            gyroEngine = null
+            _gyroReading.value = com.ps2gamepad.motion.GyroReading.NONE
+        }
+        gyroEngine?.settings = gyro
+        if (send && !_gyroSending.value) lastGyroAxes = Int.MIN_VALUE to Int.MIN_VALUE // force the first value out
+        _gyroSending.value = send
+    }
+
+    /** Sensor thread. */
+    private fun onMotionSample(engine: com.ps2gamepad.motion.GyroEngine, sample: com.ps2gamepad.motion.MotionSample) {
+        if (engine !== gyroEngine) return // stopped meanwhile
+        val reading = engine.onSample(sample) { neutral ->
+            viewModelScope.launch { settings.update { it.copy(gyroNeutral = neutral) } }
+        } ?: return
+        _gyroReading.value = reading
+        if (!_gyroSending.value) return
+        val ax = com.ps2gamepad.controller.StickMath.toAxis(reading.stick.x)
+        val ay = com.ps2gamepad.controller.StickMath.toAxis(reading.stick.y)
+        val (lx, ly) = lastGyroAxes
+        val epoch = input.resetEpoch.value
+        // Sensor noise makes the last bit flicker: send only real movement (>= 2 counts), and
+        // always send centre and full deflection exactly. After any input reset (which centred the
+        // right stick) the current tilt is sent again even if the phone did not move.
+        val changed = lx == Int.MIN_VALUE || epoch != lastGyroEpoch ||
+            com.ps2gamepad.controller.StickMath.axisChangedSignificantly(lx, ax, GYRO_AXIS_THRESHOLD) ||
+            com.ps2gamepad.controller.StickMath.axisChangedSignificantly(ly, ay, GYRO_AXIS_THRESHOLD)
+        if (changed) {
+            lastGyroAxes = ax to ay
+            lastGyroEpoch = epoch
+            input.setStick(Stick.RIGHT, reading.stick)
+        }
+    }
 
     // ------------------------------------------------------------------ simple mode (auto start / connect / name)
 
@@ -195,6 +288,7 @@ class MainViewModel(
     /** Activity resumed. The stack unregisters HID apps that leave the foreground, so restore it. */
     fun onForeground() {
         inForeground = true
+        refreshMotion()
         refreshBondedHosts()
         if (wantRegistered && hidState.value.registration == RegistrationState.NotRegistered) {
             log.add("Back in foreground: HID registration was dropped by the system, registering again")
@@ -205,11 +299,14 @@ class MainViewModel(
     /** Activity stopped (not visible). Android drops HID registrations of background apps. */
     fun onBackground() {
         inForeground = false
+        refreshMotion()
         input.releaseAll()
     }
 
     /** Activity paused / lost window focus: never leave buttons held on the host. */
     fun onInterrupted(reason: String) {
+        windowFocused = false
+        refreshMotion()
         if (input.state.value != GamepadState.NEUTRAL || input.activePointers.value > 0) {
             log.add("Input interrupted ($reason): all inputs released")
         }
@@ -315,6 +412,7 @@ class MainViewModel(
     fun switchProfile(id: String) {
         input.releaseAll()
         settings.update { ProfileManager.switchTo(it, id) }
+        refreshMotion()
     }
     fun createProfile(name: String) = settings.update { ProfileManager.create(it, name, newId) }
     fun duplicateProfile(id: String) = settings.update { ProfileManager.duplicate(it, id, newId) }
@@ -331,6 +429,7 @@ class MainViewModel(
     fun setEditMode(on: Boolean) {
         input.releaseAll() // nothing may stay held while controls move
         _editMode.value = on
+        refreshMotion()
     }
 
     /** Overlapping controls in the active layout for a screen of [w] x [h] dp. */
@@ -351,6 +450,7 @@ class MainViewModel(
         if (to != Screen.CONTROLLER) _editMode.value = false
         if (to == Screen.CONTROLLER && _session.value == null) _session.value = Session(uptime(), batteryPercent())
         _screen.value = to
+        refreshMotion()
     }
 
     fun resetSession() { _session.value = Session(uptime(), batteryPercent()) }
@@ -438,9 +538,15 @@ class MainViewModel(
         }
     }
 
-    companion object { const val MAX_AUTO_REGISTER = 3 }
+    companion object {
+        const val MAX_AUTO_REGISTER = 3
+        /** Gyro jitter filter: right-stick change (HID counts) needed before a new report. */
+        const val GYRO_AXIS_THRESHOLD = 2
+    }
 
     override fun onCleared() {
+        motionSource?.stop()
+        gyroEngine = null
         reconnectJob?.cancel()
         input.releaseAll()
         cleanup()

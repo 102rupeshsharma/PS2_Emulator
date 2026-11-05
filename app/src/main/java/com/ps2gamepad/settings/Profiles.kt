@@ -102,7 +102,14 @@ object ProfileManager {
         val profiles = s.profiles.filter { it.id.isNotBlank() && seen.add(it.id) }.map { it.sanitized() }.toMutableList()
         for (b in DefaultProfiles.all) if (profiles.none { it.id == b.id }) profiles.add(b)
         val active = if (profiles.any { it.id == s.activeId }) s.activeId else DefaultProfiles.STANDARD
-        return ProfileStore(active, profiles, s.lastConnection)
+        return ProfileStore(active, profiles, s.lastConnection, validNeutral(s.gyroNeutral))
+    }
+
+    /** A stored gyro neutral must be a finite, non-zero vector; anything else means "not calibrated". */
+    fun validNeutral(n: com.ps2gamepad.model.GyroNeutral?): com.ps2gamepad.model.GyroNeutral? {
+        if (n == null || !n.x.isFinite() || !n.y.isFinite() || !n.z.isFinite()) return null
+        val len = kotlin.math.sqrt(n.x * n.x + n.y * n.y + n.z * n.z)
+        return if (len < 1e-3f) null else com.ps2gamepad.model.GyroNeutral(n.x / len, n.y / len, n.z / len)
     }
 
     private fun uniqueId(s: ProfileStore, idGen: () -> String): String {

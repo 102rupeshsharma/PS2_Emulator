@@ -129,7 +129,7 @@ class ProfileManagerTest {
         // Regression guard: a profile has no field that could remap HID buttons.
         val fields = ControllerProfile::class.java.declaredFields
             .filter { !java.lang.reflect.Modifier.isStatic(it.modifiers) }.map { it.name }
-        assertEquals(setOf("id", "name", "builtIn", "appearance", "left", "right", "placements"), fields.toSet())
+        assertEquals(setOf("id", "name", "builtIn", "appearance", "left", "right", "placements", "gyro"), fields.toSet())
     }
 
     @Test fun storeActiveFallsBackSafely() {

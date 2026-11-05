@@ -95,7 +95,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
-        if (hasFocus) enterImmersive() else vm.onInterrupted("window lost focus")
+        if (hasFocus) { enterImmersive(); vm.onFocusGained() } else vm.onInterrupted("window lost focus")
     }
 
     private fun enterImmersive() {
@@ -129,6 +129,7 @@ class MainActivity : ComponentActivity() {
                 cleanup = { bt.stop() },
                 settingsRepository = SettingsRepository(DataStoreTextStorage(app), settingsScope),
                 phoneNameControl = com.ps2gamepad.bluetooth.AdapterPhoneName(app) { bt.adapter },
+                motionSource = com.ps2gamepad.motion.AndroidMotionSource(app),
                 batteryPercent = {
                     battery?.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY)?.takeIf { it in 0..100 }
                 },

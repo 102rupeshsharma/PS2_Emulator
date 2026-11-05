@@ -195,7 +195,7 @@ GyroViewModelTest (10), GyroUiTest (2): all passed.
 | 8 | Button releases are reliable | ✅ app logic + stress · ⏳ hardware |
 | 9 | Bluetooth reconnect works | ⏳ |
 | 10 | Earbud simultaneous connectivity verified | ⏳ |
-| 11 | PCSX2 recognises the controller | ⏳ |
+| 11 | PCSX2 recognises the controller | ✅ PCSX2 sees it as SDL-0; manual binding works (user, 2026-11-05). Automatic Mapping is not available for this generic pad (expected) |
 | 12 | Actual gameplay manually tested | ⏳ |
 | 13 | No known reproducible critical bugs | ✅ none known (two critical audit bugs fixed; hardware unknown, see BUG_REPORT.md O1) |
 | 14 | Automated regression tests pass | ✅ 179/179 executed, 2 skipped |

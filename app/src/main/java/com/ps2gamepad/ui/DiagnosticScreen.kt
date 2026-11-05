@@ -57,7 +57,7 @@ fun DiagnosticScreen(vm: MainViewModel) {
         }
     }
 
-    BackHandler { vm.navigate(Screen.DASHBOARD) }
+    BackHandler { vm.navigate(Screen.HOME) }
 
     Row(
         Modifier.fillMaxSize().background(Palette.Background).windowInsetsPadding(WindowInsets.displayCutout).padding(12.dp),
@@ -67,7 +67,7 @@ fun DiagnosticScreen(vm: MainViewModel) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("Controller Diagnostics", color = Palette.Text, fontSize = 18.sp, fontWeight = FontWeight.Bold)
                 ActionButton("Controller", onClick = { vm.navigate(Screen.CONTROLLER) })
-                ActionButton("Home", outlined = true, onClick = { vm.navigate(Screen.DASHBOARD) })
+                ActionButton("Home", outlined = true, onClick = { vm.navigate(Screen.HOME) })
             }
             Card {
                 val st = overallStatus(bt, perm, hid)

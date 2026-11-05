@@ -41,7 +41,7 @@ fun ProfilesScreen(vm: MainViewModel) {
     val store by vm.profiles.collectAsStateWithLifecycle()
     var dialog by remember { mutableStateOf<ProfileDialog?>(null) }
 
-    ScreenFrame("Profiles", onBack = { vm.navigate(Screen.DASHBOARD) }, actions = {
+    ScreenFrame("Profiles", onBack = { vm.navigate(Screen.HOME) }, actions = {
         ActionButton("New profile") { dialog = ProfileDialog.Create }
     }) {
         Text(

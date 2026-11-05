@@ -40,7 +40,7 @@ class LifecycleIntegrationTest {
         ActivityScenario.launch(MainActivity::class.java).use { s ->
             s.moveToState(Lifecycle.State.RESUMED)
             val vm = vmOf(s)
-            assertEquals(Screen.DASHBOARD, vm.screen.value)
+            assertEquals(Screen.HOME, vm.screen.value)
             assertNotNull(vm.compatibility.firstOrNull { it.startsWith("Android") })
         }
     }

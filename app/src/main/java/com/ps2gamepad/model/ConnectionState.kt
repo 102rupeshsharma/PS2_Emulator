@@ -32,8 +32,11 @@ sealed interface ConnectionState {
     data class Error(val reason: String) : ConnectionState { override val label = "Connection error: $reason" }
 }
 
-/** A remote Bluetooth host. [name] may be null when the permission or the stack does not give it. */
-data class HostDevice(val address: String, val name: String?) {
+/**
+ * A remote Bluetooth host. [name] may be null when the permission or the stack does not give it.
+ * [isComputer]: its Bluetooth class says "computer" (laptops/PCs), so earbuds etc. can be hidden.
+ */
+data class HostDevice(val address: String, val name: String?, val isComputer: Boolean = true) {
     val displayName: String get() = name?.takeIf { it.isNotBlank() } ?: address
 }
 

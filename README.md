@@ -2,7 +2,7 @@
 
 ## 📥 Download
 
-### **[⬇️ Download the APK (v1.0.0, 2.5 MB)](download/PS2BluetoothGamepad.apk?raw=true)**
+### **[⬇️ Download the APK (v1.1.0, 2.5 MB)](download/PS2BluetoothGamepad.apk?raw=true)**
 
 **Install on your phone:**
 1. Open this page on your Android phone and tap the download link above.
@@ -10,11 +10,16 @@
 3. If asked, allow **"Install unknown apps"** for your browser or file manager, then tap **Install**.
    Android or Play Protect may warn that the app is from an unknown developer, because it isn't
    from the Play Store. Choose **Install anyway**.
-4. Open **PS2 Bluetooth Gamepad** → Connection → Grant permission → **Register HID Device**,
-   then pair from Windows ([BLUETOOTH_SETUP.md](BLUETOOTH_SETUP.md)).
+4. Open **PS2 Bluetooth Gamepad** and follow the one instruction on the screen:
+   - **Allow** Bluetooth access, then the app sets itself up and renames the phone to **"PS2 Gamepad"**.
+   - First time: tap **Make phone visible to PC**, then on the laptop go to Settings → Bluetooth & devices →
+     Add device → Bluetooth → **PS2 Gamepad**, and confirm the code on both screens.
+   - Next times: just open the app with Bluetooth on (phone and laptop); it connects by itself.
+   - When it says **Connected ✓**, tap **Open Controller**.
+   - If the phone was paired with the laptop *before*, remove it in Windows Bluetooth settings first and pair again.
 
 Requires Android 9 or newer with Bluetooth.
-SHA-256: `d5cc736080bc12632ffff45fad04a61ac65064398cb2e0a85ee49c06f4dfef91`
+SHA-256: `dede35c3a62d01596ce4dc42c43e4ff801cfee3a47f0af44bc5ea932f0feb542`
 
 ---
 

@@ -58,6 +58,7 @@ class ControllerUiTest {
     @Before fun setUp() {
         vm = MainViewModel(hid, bt, { listOf(laptop) }, DiagnosticLog(), listOf("robolectric"), { 0L }, batteryPercent = { 77 })
         rule.setContent { App(vm, AppActions({}, {}, {}, {})) }
+        rule.runOnIdle { vm.navigate(Screen.DASHBOARD) } // these tests start from the "More" screen
         rule.waitForIdle()
     }
 

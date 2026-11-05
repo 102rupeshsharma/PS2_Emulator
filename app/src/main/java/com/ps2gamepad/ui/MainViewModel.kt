@@ -36,7 +36,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
-enum class Screen { DASHBOARD, CONNECTION, CONTROLLER, DIAGNOSTICS, CUSTOMIZE, PROFILES, CALIBRATION }
+enum class Screen { HOME, LOGS, DASHBOARD, CONNECTION, CONTROLLER, DIAGNOSTICS, CUSTOMIZE, PROFILES, CALIBRATION }
 
 /** A controller session, for measured (not estimated) battery and duration figures. */
 data class Session(val startUptimeMs: Long, val startBattery: Int?)
@@ -58,6 +58,8 @@ class MainViewModel(
     private val wallClockMs: () -> Long = System::currentTimeMillis,
     val batteryPercent: () -> Int? = { null },
     private val newId: () -> String = { java.util.UUID.randomUUID().toString().take(8) },
+    private val phoneNameControl: com.ps2gamepad.bluetooth.PhoneNameControl? = null,
+    private val autoConnectDelayMs: Long = 1_500,
 ) : ViewModel() {
 
     private val uptime = uptimeMs
@@ -75,7 +77,7 @@ class MainViewModel(
     private val _permission = MutableStateFlow(PermissionState.REQUIRED)
     val permission: StateFlow<PermissionState> = _permission.asStateFlow()
 
-    private val _screen = MutableStateFlow(Screen.DASHBOARD)
+    private val _screen = MutableStateFlow(Screen.HOME)
     val screen: StateFlow<Screen> = _screen.asStateFlow()
 
     private val _bondedHosts = MutableStateFlow<List<HostDevice>>(emptyList())
@@ -93,6 +95,77 @@ class MainViewModel(
     val session: StateFlow<Session?> = _session.asStateFlow()
 
     fun uptimeNow(): Long = uptime()
+
+    // ------------------------------------------------------------------ simple mode (auto start / connect / name)
+
+    private val _phoneName = MutableStateFlow<String?>(null)
+    /** The phone's Bluetooth name as the PC sees it. */
+    val phoneName: StateFlow<String?> = _phoneName.asStateFlow()
+    /** True after the user explicitly tapped Unregister: then nothing starts automatically. */
+    private var userUnregistered = false
+    private var autoConnectJob: Job? = null
+
+    /** Laptops/PCs paired with the phone (earbuds and other devices are hidden). */
+    val computerHosts: List<HostDevice> get() = _bondedHosts.value.filter { it.isComputer }
+
+    /** The PC to connect to: the last one used, else the only paired computer. */
+    val knownPc: HostDevice?
+        get() = lastHost
+            ?: profiles.value.lastConnection?.let { lc -> lc.address?.let { HostDevice(it, lc.hostName) } }
+            ?: computerHosts.singleOrNull()
+
+    /**
+     * Called whenever the app comes to the foreground (and after permissions are granted): names the
+     * phone "PS2 Gamepad" and registers the gamepad, so the user only has to open the app.
+     */
+    fun autoStart() {
+        if (permission.value != PermissionState.GRANTED || bluetoothState.value != BluetoothState.ENABLED) return
+        applyPhoneName()
+        if (userUnregistered) return
+        wantRegistered = true
+        if (hidState.value.registration == RegistrationState.NotRegistered) {
+            log.add("Auto start: registering gamepad")
+            registerInternal()
+        }
+    }
+
+    fun applyPhoneName() {
+        val c = phoneNameControl ?: return
+        val before = c.current()
+        if (before != com.ps2gamepad.bluetooth.PhoneNameControl.GAMEPAD_NAME) {
+            val ok = c.applyGamepadName()
+            log.add(if (ok) "Phone Bluetooth name changed from \"$before\" to \"${com.ps2gamepad.bluetooth.PhoneNameControl.GAMEPAD_NAME}\""
+                    else "Could not rename the phone (still \"$before\")")
+        }
+        _phoneName.value = c.current() ?: before
+    }
+
+    fun restorePhoneName() {
+        val c = phoneNameControl ?: return
+        val original = c.originalName
+        log.add(if (c.restoreOriginal()) "Phone name restored to \"$original\"" else "Could not restore the phone name")
+        _phoneName.value = c.current()
+    }
+
+    fun connectKnownPc() {
+        val pc = knownPc ?: run { log.add("No paired laptop known: pair from the laptop first"); return }
+        connect(pc)
+    }
+
+    /** After registering, connect to the known PC automatically unless the user disconnected. */
+    private fun scheduleAutoConnect() {
+        autoConnectJob?.cancel()
+        if (userDisconnected) return
+        autoConnectJob = viewModelScope.launch {
+            delay(autoConnectDelayMs) // give the stack's own reconnect a chance first
+            val st = hidState.value
+            if (st.isConnected || st.connection is ConnectionState.Connecting || userDisconnected) return@launch
+            if (st.registration != RegistrationState.Registered) return@launch
+            val pc = knownPc ?: return@launch
+            log.add("Auto connect to ${pc.displayName}")
+            hid.connect(pc.address)
+        }
+    }
 
     /** True while the user wants the HID app registered (survives stack-initiated unregistration). */
     private var wantRegistered = false
@@ -146,6 +219,7 @@ class MainViewModel(
     // ------------------------------------------------------------------ user actions
 
     fun register() {
+        userUnregistered = false
         wantRegistered = true
         autoRegisterAttempts = 0
         registerInternal()
@@ -170,6 +244,8 @@ class MainViewModel(
     }
 
     fun unregister() {
+        userUnregistered = true
+        autoConnectJob?.cancel()
         wantRegistered = false
         userDisconnected = true
         reconnectJob?.cancel()
@@ -187,6 +263,7 @@ class MainViewModel(
 
     fun disconnect() {
         userDisconnected = true
+        autoConnectJob?.cancel()
         reconnectJob?.cancel()
         input.releaseAll()
         hid.disconnect()
@@ -288,6 +365,7 @@ class MainViewModel(
             }
             BluetoothState.ENABLED -> {
                 refreshBondedHosts()
+                if (inForeground) autoStart()
                 if (wantRegistered && hidState.value.registration == RegistrationState.NotRegistered) {
                     log.add("Bluetooth back on: registering again")
                     autoRegister()
@@ -304,6 +382,9 @@ class MainViewModel(
         if (prev.connection != s.connection) log.add("Connection: ${s.connection.label}")
 
         if (s.registration is RegistrationState.Failed) wantRegistered = false
+        if (prev.registration != RegistrationState.Registered && s.registration == RegistrationState.Registered && !s.isConnected) {
+            scheduleAutoConnect()
+        }
         // Registration dropped by the system while we are visible (e.g. a dialog briefly took the
         // foreground). In the background we wait for onForeground() instead.
         if (prev.registration == RegistrationState.Registered && s.registration == RegistrationState.NotRegistered &&
@@ -315,6 +396,7 @@ class MainViewModel(
 
         val wasConnected = prev.connection is ConnectionState.Connected
         if (s.isConnected && !wasConnected) {
+            autoConnectJob?.cancel() // connected: a pending auto-connect must not fire later
             _connectedSince.value = uptime()
             s.connectedHost?.let { h ->
                 settings.update { ProfileManager.recordConnection(it, LastConnection(h.displayName, wallClockMs(), h.address)) }

@@ -53,7 +53,7 @@ fun DashboardScreen(vm: MainViewModel, actions: AppActions) {
         }
     }
 
-    BackHandler { actions.exit() }
+    BackHandler { vm.navigate(Screen.HOME) }
     val status = overallStatus(bt, perm, hid)
 
     Row(
@@ -61,7 +61,10 @@ fun DashboardScreen(vm: MainViewModel, actions: AppActions) {
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text("PS2 Bluetooth Gamepad", color = Palette.Text, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+            Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                ActionButton("Back", outlined = true) { vm.navigate(Screen.HOME) }
+                Text("More", color = Palette.Text, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+            }
             Card {
                 StatusRow("Bluetooth", bt.label, if (bt == com.ps2gamepad.model.BluetoothState.ENABLED) Severity.GOOD else Severity.BAD)
                 StatusRow("Controller", status.text, status.severity)

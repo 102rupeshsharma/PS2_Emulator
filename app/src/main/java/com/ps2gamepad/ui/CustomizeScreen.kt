@@ -45,7 +45,7 @@ fun CustomizeScreen(vm: MainViewModel) {
     val a = profile.appearance
     var stickTab by remember { mutableStateOf(Stick.LEFT) }
 
-    ScreenFrame("Customize: ${profile.name}", onBack = { vm.navigate(Screen.DASHBOARD) }) {
+    ScreenFrame("Customize: ${profile.name}", onBack = { vm.navigate(Screen.HOME) }) {
         Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("Preview (same layout as the controller, not interactive)", color = Palette.TextDim, fontSize = 11.sp)

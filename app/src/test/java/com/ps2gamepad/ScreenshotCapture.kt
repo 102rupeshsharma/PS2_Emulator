@@ -48,13 +48,21 @@ class ScreenshotCapture {
     @Test fun captureScreens() {
         assumeTrue("run with -Pscreenshots", System.getProperty("screenshotDir") != null)
         val hid = FakeHid()
-        val vm = MainViewModel(hid, MutableStateFlow(BluetoothState.ENABLED), { emptyList() }, DiagnosticLog(), listOf("screenshot"), { 0L }, batteryPercent = { 80 })
+        val vm = MainViewModel(hid, MutableStateFlow(BluetoothState.ENABLED), { emptyList() }, DiagnosticLog(), listOf("screenshot"), { 0L },
+            batteryPercent = { 80 }, phoneNameControl = FakePhoneName())
         rule.setContent { App(vm, AppActions({}, {}, {}, {})) }
         val host = HostDevice("00:00:00:00:00:01", "LAPTOP (mock)")
+        shoot("00_home_permission")
+        rule.runOnIdle { vm.onPermissionsChanged(true); vm.onForeground(); vm.autoStart(); hid.emit(HidEvent.AppStatusChanged(true)) }
+        shoot("01_home_ready_to_pair")
         rule.runOnIdle {
             vm.onPermissionsChanged(true); vm.register()
             hid.emit(HidEvent.AppStatusChanged(true)); hid.emit(HidEvent.ConnectionChanged(host, HidStateReducer.STATE_CONNECTED))
         }
+        shoot("02_home_connected")
+        rule.runOnIdle { vm.navigate(Screen.LOGS) }
+        shoot("03_logs")
+        rule.runOnIdle { vm.navigate(Screen.DASHBOARD) }
         shoot("10_dashboard")
         rule.runOnIdle { vm.navigate(Screen.CONTROLLER) }
         shoot("11_controller_default")

@@ -59,6 +59,8 @@ fun App(vm: MainViewModel, actions: AppActions) {
     MaterialTheme(colorScheme = darkColorScheme(primary = Palette.Info, onPrimary = Color.White, background = Palette.Background, surface = Palette.Surface)) {
         val screen by vm.screen.collectAsStateWithLifecycle()
         when (screen) {
+            Screen.HOME -> SimpleHomeScreen(vm, actions)
+            Screen.LOGS -> LogsScreen(vm)
             Screen.DASHBOARD -> DashboardScreen(vm, actions)
             Screen.CONNECTION -> MainScreen(vm, actions)
             Screen.CONTROLLER -> ControllerScreen(vm)
@@ -84,7 +86,7 @@ fun MainScreen(vm: MainViewModel, actions: AppActions) {
     var now by remember { mutableLongStateOf(vm.uptimeNow()) }
     LaunchedEffect(since) { while (since != null) { now = vm.uptimeNow(); kotlinx.coroutines.delay(1000) } }
 
-    BackHandler { vm.navigate(Screen.DASHBOARD) }
+    BackHandler { vm.navigate(Screen.HOME) }
 
     Row(
         Modifier.fillMaxSize().background(Palette.Background).windowInsetsPadding(WindowInsets.displayCutout).padding(12.dp),
@@ -95,7 +97,7 @@ fun MainScreen(vm: MainViewModel, actions: AppActions) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("Connection", color = Palette.Text, fontSize = 18.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
                 ActionButton("Open Controller", onClick = { vm.navigate(Screen.CONTROLLER) })
-                ActionButton("Home", outlined = true, onClick = { vm.navigate(Screen.DASHBOARD) })
+                ActionButton("Home", outlined = true, onClick = { vm.navigate(Screen.HOME) })
             }
             Spacer(Modifier.height(6.dp))
             Card {
@@ -133,10 +135,10 @@ fun MainScreen(vm: MainViewModel, actions: AppActions) {
                     outlined = true, onClick = vm::reconnect,
                 )
             }
-            if (hid.registration == RegistrationState.Registered && !hid.isConnected && hosts.isNotEmpty()) {
+            if (hid.registration == RegistrationState.Registered && !hid.isConnected && hosts.any { it.isComputer }) {
                 Spacer(Modifier.height(6.dp))
                 Text("Paired hosts (connect from phone):", color = Palette.TextDim, fontSize = 12.sp)
-                hosts.forEach { h ->
+                hosts.filter { it.isComputer }.forEach { h ->
                     ActionButton("Connect ${h.displayName}", outlined = true, onClick = { vm.connect(h) })
                 }
             }

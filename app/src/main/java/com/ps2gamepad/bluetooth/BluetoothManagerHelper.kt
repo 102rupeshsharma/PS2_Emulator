@@ -2,6 +2,7 @@ package com.ps2gamepad.bluetooth
 
 import android.annotation.SuppressLint
 import android.bluetooth.BluetoothAdapter
+import android.bluetooth.BluetoothClass
 import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothManager
 import android.content.BroadcastReceiver
@@ -70,7 +71,10 @@ class BluetoothManagerHelper(private val context: Context) {
     fun bondedHosts(): List<HostDevice> = try {
         adapter?.bondedDevices.orEmpty()
             .filter { it.type != BluetoothDevice.DEVICE_TYPE_LE } // HID device profile is classic BR/EDR
-            .map { HostDevice(it.address, it.name) }
+            .map { d ->
+                val major = d.bluetoothClass?.majorDeviceClass
+                HostDevice(d.address, d.name, isComputer = major == null || major == BluetoothClass.Device.Major.COMPUTER)
+            }
             .sortedBy { it.displayName.lowercase() }
     } catch (e: SecurityException) {
         emptyList()

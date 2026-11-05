@@ -42,7 +42,7 @@ fun CalibrationScreen(vm: MainViewModel) {
     val profile by vm.activeProfile.collectAsStateWithLifecycle()
     val pad by vm.gamepad.collectAsStateWithLifecycle()
     val epoch by vm.input.resetEpoch.collectAsStateWithLifecycle()
-    ScreenFrame("Analog calibration: ${profile.name}", onBack = { vm.navigate(Screen.DASHBOARD) }) {
+    ScreenFrame("Analog calibration: ${profile.name}", onBack = { vm.navigate(Screen.HOME) }) {
         Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             for (stick in Stick.entries) {
                 val s = profile.stick(stick)

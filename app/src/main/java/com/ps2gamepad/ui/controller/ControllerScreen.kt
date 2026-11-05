@@ -85,7 +85,7 @@ fun ControllerScreen(vm: MainViewModel) {
     BackHandler {
         if (editing) { vm.setEditMode(false); return@BackHandler }
         val now = System.currentTimeMillis()
-        if (now - lastBack < 2000) vm.navigate(Screen.DASHBOARD) else { lastBack = now; backHint = true; vm.input.releaseAll() }
+        if (now - lastBack < 2000) vm.navigate(Screen.HOME) else { lastBack = now; backHint = true; vm.input.releaseAll() }
     }
     LaunchedEffect(backHint) { if (backHint) { delay(2000); backHint = false } }
 
@@ -105,7 +105,7 @@ fun ControllerScreen(vm: MainViewModel) {
             Modifier.align(Alignment.TopCenter).padding(top = 6.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically,
         ) {
-            SmallChipButton("Home") { vm.navigate(Screen.DASHBOARD) }
+            SmallChipButton("Home") { vm.navigate(Screen.HOME) }
             ConnectionChip(status, Modifier.testTag("connectionChip"))
             SmallChipButton(if (showOverlay) "Hide" else "Live") { showOverlay = !showOverlay }
             SmallChipButton("Edit") { vm.setEditMode(true) }

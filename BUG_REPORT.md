@@ -34,6 +34,14 @@ Severity follows the Phase 4 scale (Critical / High / Medium / Low).
 | B2 | Low | Lint error: unescaped Windows path in `local.properties` | Lint | Path written with `\` | Escaped path | Lint | ✅ |
 | B23 | Low | Dead code: `BluetoothManagerHelper.localName`, `GamepadState.isNeutral`, `PadColors.Led` | Audit | Left over | Removed after checking references | Build + tests | ✅ |
 
+## Fixed in 1.1.0
+
+| ID | Sev. | Bug | How found | Fix | Regression test |
+|---|---|---|---|---|---|
+| B24 | High | First real test: the laptop paired *before* HID registration rejected the gamepad connection (DISCONNECTED after ~4.5 s) | User test on POCO F6 | Not an app bug (Windows caches the services at pairing). The simple screen now tells the user to remove the phone in Windows and pair again | `SimpleStatusTest.knownPcMeansConnect` (help text) |
+| B25 | Medium | Earbuds ("realme Buds T500 Pro") were listed as a PC to connect to | User screenshot | Paired list filtered to Bluetooth class COMPUTER | `AutoModeViewModelTest.earbudsAreNotOfferedAsPc` |
+| B26 | Medium | An auto-connect scheduled at registration could fire after a later disconnect (duplicate connect attempt) | `MainViewModelTest` | Cancelled once connected | `MainViewModelTest.reconnectGivesUpAfterThreeAttempts` |
+
 ## Open / not fixed
 
 | ID | Sev. | Issue | Why open | Workaround |

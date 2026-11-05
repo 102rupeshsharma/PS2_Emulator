@@ -1,5 +1,19 @@
 # Release notes
 
+## 1.1.0 (versionCode 5), 2026-11-05: simple mode
+
+After the first real test on the POCO F6 (HID registration works on Android 16):
+- **New simple home screen:** one status in plain words and the one button needed now.
+  Advanced screens are under "More".
+- **Automatic setup:** opening the app (or turning Bluetooth on while it is open) registers the gamepad
+  automatically, and connects to the known laptop 1.5 s later if the stack didn't already.
+- **The PC sees "PS2 Gamepad":** the app renames the phone's Bluetooth name (the name Windows shows)
+  and remembers the original. "Restore phone name" is on the Logs screen.
+- **Logs button (testing):** full log with Copy / Clear. It is in its own file so it is easy to remove later.
+- **Fixed:** earbuds were offered as a "host" to connect to; only computers are listed now.
+- **Fixed (found by tests):** a pending auto-connect could fire again after a later disconnect.
+- Tests: 201 (199 passed, 2 skipped).
+
 ## 1.0.0 (versionCode 4), 2026-11-05: release candidate
 
 > **Release candidate, not a verified release.** All automated tests pass and the release build

@@ -226,7 +226,7 @@ class MainViewModelTest {
 
     // ---------------------------------------------------------------- Phase 3
 
-    @Test fun startsOnDashboard() = assertEquals(Screen.DASHBOARD, vm.screen.value)
+    @Test fun startsOnSimpleHome() = assertEquals(Screen.HOME, vm.screen.value)
 
     @Test fun connectionDurationAndLastConnectionAreReal() = runTest(dispatcher) {
         runCurrent()

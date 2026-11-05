@@ -35,6 +35,7 @@ class MainActivity : ComponentActivity() {
 
     private val permissionLauncher = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
         vm.onPermissionsChanged(BluetoothPermissionHandler.hasAll(this))
+        vm.autoStart()
     }
     private val enableLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { }
     private val discoverableLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
@@ -78,6 +79,7 @@ class MainActivity : ComponentActivity() {
         enterImmersive()
         vm.onPermissionsChanged(BluetoothPermissionHandler.hasAll(this))
         vm.onForeground()
+        vm.autoStart()
     }
 
     override fun onPause() {
@@ -126,6 +128,7 @@ class MainActivity : ComponentActivity() {
                 uptimeMs = SystemClock::uptimeMillis,
                 cleanup = { bt.stop() },
                 settingsRepository = SettingsRepository(DataStoreTextStorage(app), settingsScope),
+                phoneNameControl = com.ps2gamepad.bluetooth.AdapterPhoneName(app) { bt.adapter },
                 batteryPercent = {
                     battery?.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY)?.takeIf { it in 0..100 }
                 },

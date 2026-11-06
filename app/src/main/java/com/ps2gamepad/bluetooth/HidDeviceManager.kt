@@ -36,13 +36,18 @@ data class SenderStats(
 interface HidController {
     val state: StateFlow<HidState>
     val stats: StateFlow<SenderStats>
-    /** [autoConnectPlugged]: reconnect to the stack's last host after registering (false after a user Disconnect). */
-    fun register(autoConnectPlugged: Boolean = true)
+    /**
+     * [autoConnectPlugged]: reconnect to the stack's last host after registering (false after a user Disconnect).
+     * [composite]: register the PC Mode descriptor (gamepad + keyboard + mouse) instead of gamepad-only.
+     */
+    fun register(autoConnectPlugged: Boolean = true, composite: Boolean = false)
     fun unregister()
     fun connect(address: String)
     fun disconnect()
     /** Queues a report for the connected host. Returns false (and drops it) when no host is connected. */
     fun sendReport(report: ByteArray, eventUptimeMs: Long = SystemClock.uptimeMillis()): Boolean
+    /** PC Mode: keyboard (ID 2) / mouse (ID 3) reports. False when not connected or not registered as composite. */
+    fun sendInputReport(reportId: Int, report: ByteArray, eventUptimeMs: Long = SystemClock.uptimeMillis()): Boolean
     fun onBluetoothOff()
     fun close()
 }
@@ -76,6 +81,9 @@ class HidDeviceManager(
     @Volatile private var anyProxy: BluetoothProfile? = null
     @Volatile private var proxyRequested = false
     @Volatile private var autoConnectPlugged = true
+    /** Descriptor of the current/next registration: false = gamepad only (unchanged), true = PC Mode composite. */
+    @Volatile private var composite = false
+    @Volatile private var registeredComposite = false
     @Volatile private var connectedDevice: BluetoothDevice? = null
     @Volatile private var pendingRegister = false
     @Volatile private var closed = false
@@ -86,7 +94,12 @@ class HidDeviceManager(
     private val lock = ReentrantLock()
     private val hasWork = lock.newCondition()
     private val queue = ReportQueue()
-    @Volatile private var lastReport: ByteArray = HidReportManager.NEUTRAL_REPORT
+    /** Latest state per report ID (for GET_REPORT and retries). Index = report ID. */
+    private val lastReports = arrayOf(
+        ByteArray(0), HidReportManager.NEUTRAL_REPORT,
+        PcReports.keyboard(0, emptyList()), PcReports.mouse(0, 0, 0, 0),
+    )
+    private val lastReport: ByteArray get() = lastReports[HidDescriptor.REPORT_ID]
     private val senderThread = Thread(::senderLoop, "hid-sender").apply { isDaemon = true; start() }
 
     private fun dispatch(e: HidEvent) = _state.update { HidStateReducer.reduce(it, e) }
@@ -164,8 +177,9 @@ class HidDeviceManager(
 
     // ---------------------------------------------------------------- registration
 
-    override fun register(autoConnectPlugged: Boolean) {
+    override fun register(autoConnectPlugged: Boolean, composite: Boolean) {
         this.autoConnectPlugged = autoConnectPlugged
+        this.composite = composite
         runOnCallbackThread {
             val reg = _state.value.registration
             if (reg == RegistrationState.Registering || reg == RegistrationState.Registered) {
@@ -188,9 +202,13 @@ class HidDeviceManager(
             HidDescriptor.SDP_NAME,
             HidDescriptor.SDP_DESCRIPTION,
             HidDescriptor.SDP_PROVIDER,
-            (BluetoothHidDevice.SUBCLASS1_NONE.toInt() or BluetoothHidDevice.SUBCLASS2_GAMEPAD.toInt()).toByte(),
-            HidDescriptor.REPORT_DESCRIPTOR,
+            // Gamepad-only keeps the exact Phase 1 registration. PC Mode adds keyboard + pointing (combo).
+            if (composite) BluetoothHidDevice.SUBCLASS1_COMBO
+            else (BluetoothHidDevice.SUBCLASS1_NONE.toInt() or BluetoothHidDevice.SUBCLASS2_GAMEPAD.toInt()).toByte(),
+            if (composite) HidDescriptor.COMPOSITE_DESCRIPTOR else HidDescriptor.REPORT_DESCRIPTOR,
         )
+        registeredComposite = composite
+        log(if (composite) "Registering with PC Mode descriptor (gamepad + keyboard + mouse)" else "Registering with gamepad descriptor")
         dispatch(HidEvent.RegisterRequested)
         val ok = try {
             hid.registerApp(sdp, null, null, callbackExecutor, HidDeviceCallback(listener))
@@ -321,8 +339,12 @@ class HidDeviceManager(
         override fun onGetReport(device: BluetoothDevice, type: Byte, id: Byte, bufferSize: Int) {
             val hid = hidDevice ?: return
             try {
-                if (type == BluetoothHidDevice.REPORT_TYPE_INPUT && id.toInt() == HidDescriptor.REPORT_ID) {
-                    hid.replyReport(device, type, id, lastReport)
+                val validId = id.toInt() == HidDescriptor.REPORT_ID ||
+                    (registeredComposite && (id.toInt() == HidDescriptor.KEYBOARD_REPORT_ID || id.toInt() == HidDescriptor.MOUSE_REPORT_ID))
+                if (type == BluetoothHidDevice.REPORT_TYPE_INPUT && validId) {
+                    // a mouse GET_REPORT returns buttons only (movement is relative, never replayed)
+                    val r = if (id.toInt() == HidDescriptor.MOUSE_REPORT_ID) mouseButtonsOnly(lastReports[id.toInt()]) else lastReports[id.toInt()]
+                    hid.replyReport(device, type, id, r)
                 } else if (type == BluetoothHidDevice.REPORT_TYPE_INPUT) {
                     hid.reportError(device, BluetoothHidDevice.ERROR_RSP_INVALID_RPT_ID)
                 } else {
@@ -353,16 +375,29 @@ class HidDeviceManager(
 
     // ---------------------------------------------------------------- reports
 
-    override fun sendReport(report: ByteArray, eventUptimeMs: Long): Boolean {
-        require(report.size == HidDescriptor.REPORT_LENGTH)
+    override fun sendReport(report: ByteArray, eventUptimeMs: Long): Boolean =
+        sendInputReport(HidDescriptor.REPORT_ID, report, eventUptimeMs)
+
+    override fun sendInputReport(reportId: Int, report: ByteArray, eventUptimeMs: Long): Boolean {
+        val expected = when (reportId) {
+            HidDescriptor.REPORT_ID -> HidDescriptor.REPORT_LENGTH
+            HidDescriptor.KEYBOARD_REPORT_ID -> HidDescriptor.KEYBOARD_REPORT_LENGTH
+            HidDescriptor.MOUSE_REPORT_ID -> HidDescriptor.MOUSE_REPORT_LENGTH
+            else -> throw IllegalArgumentException("unknown report id $reportId")
+        }
+        require(report.size == expected) { "report $reportId must be $expected bytes" }
+        // Keyboard/mouse reports only exist in the PC Mode descriptor.
+        if (reportId != HidDescriptor.REPORT_ID && !registeredComposite) return false
         lock.withLock {
-            lastReport = report
+            lastReports[reportId] = report
             if (connectedDevice == null || hidDevice == null) return false
-            queue.offer(PendingReport(report, eventUptimeMs))
+            queue.offer(PendingReport(report, eventUptimeMs, reportId))
             hasWork.signal()
         }
         return true
     }
+
+    private fun mouseButtonsOnly(r: ByteArray) = PcReports.mouse(PcReports.decodeMouse(r).buttons, 0, 0, 0)
 
     private fun senderLoop() {
         var lastSendAt = 0L
@@ -393,7 +428,7 @@ class HidDeviceManager(
             if (hid == null || dev == null) continue
 
             val ok = try {
-                hid.sendReport(dev, HidDescriptor.REPORT_ID, item.bytes)
+                hid.sendReport(dev, item.reportId, item.bytes)
             } catch (e: Exception) {
                 false
             }
@@ -404,7 +439,7 @@ class HidDeviceManager(
                 sent++
                 lastLatency = now - item.eventUptimeMs
                 latencySum += lastLatency; latencyN++
-                lastSentBytes = item.bytes
+                if (item.reportId == HidDescriptor.REPORT_ID) lastSentBytes = item.bytes
             } else {
                 failures++
                 if (failures % 50 == 1L) log("sendReport() failed (total $failures)")
@@ -414,7 +449,11 @@ class HidDeviceManager(
                     retries++
                     lock.withLock {
                         if (queue.isEmpty() && connectedDevice != null) {
-                            queue.offer(PendingReport(lastReport, item.eventUptimeMs)); hasWork.signal()
+                            // resend the CURRENT state of that report; for the mouse only the buttons
+                            // (re-sending relative movement would move the cursor twice)
+                            val current = if (item.reportId == HidDescriptor.MOUSE_REPORT_ID) mouseButtonsOnly(lastReports[item.reportId])
+                            else lastReports[item.reportId]
+                            queue.offer(PendingReport(current, item.eventUptimeMs, item.reportId)); hasWork.signal()
                         }
                     }
                     try { Thread.sleep(RETRY_DELAY_MS) } catch (e: InterruptedException) { break }

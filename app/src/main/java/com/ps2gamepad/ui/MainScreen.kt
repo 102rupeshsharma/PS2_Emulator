@@ -60,8 +60,10 @@ fun App(vm: MainViewModel, actions: AppActions) {
         val screen by vm.screen.collectAsStateWithLifecycle()
         when (screen) {
             Screen.HOME -> SimpleHomeScreen(vm, actions)
+            Screen.MODE_SELECT -> ModeSelectScreen(vm)
+            Screen.PC_CONTROLLER -> com.ps2gamepad.ui.pc.PcControllerScreen(vm)
+            Screen.PC_PROFILES -> com.ps2gamepad.ui.pc.PcProfilesScreen(vm)
             Screen.LOADOUTS -> LoadoutPickerScreen(vm)
-            Screen.STYLES -> StylesScreen(vm)
             Screen.GYRO -> GyroScreen(vm)
             Screen.DASHBOARD -> DashboardScreen(vm, actions)
             Screen.CONNECTION -> MainScreen(vm, actions)

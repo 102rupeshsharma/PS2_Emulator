@@ -2,6 +2,8 @@ package com.ps2gamepad
 
 import android.graphics.Bitmap
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.performClick
 import com.ps2gamepad.bluetooth.HidEvent
 import com.ps2gamepad.bluetooth.HidStateReducer
 import com.ps2gamepad.model.BluetoothState
@@ -62,20 +64,13 @@ class ScreenshotCapture {
         }
         shoot("02_home_connected")
         rule.runOnIdle {
-            vm.createLoadout("God of War"); vm.updateAppearance { it.copy(skin = com.ps2gamepad.model.ControllerSkin.PS5_STYLE) }; vm.setEditMode(false)
-            vm.createLoadout("GTA San Andreas"); vm.updateAppearance { it.copy(skin = com.ps2gamepad.model.ControllerSkin.XBOX_STYLE) }
+            vm.createLoadout("God of War"); vm.updateAppearance { it.copy(buttonScale = 1.2f) }; vm.setEditMode(false)
+            vm.createLoadout("GTA San Andreas"); vm.updateAppearance { it.copy(buttonOpacity = 0.7f) }
             vm.updateGyro { it.copy(enabled = true) }; vm.setEditMode(false)
-            vm.openController()
+            vm.chooseMode(com.ps2gamepad.model.GamingMode.EMULATOR)
         }
         shoot("07_loadouts")
         rule.runOnIdle { vm.playLoadout(com.ps2gamepad.settings.DefaultProfiles.STANDARD); vm.updateGyro { it.copy(enabled = false) } }
-        rule.runOnIdle { vm.navigate(Screen.STYLES) }
-        shoot("03_styles")
-        for (sk in com.ps2gamepad.model.ControllerSkin.entries) {
-            rule.runOnIdle { vm.updateAppearance { it.copy(skin = sk) }; vm.navigate(Screen.CONTROLLER) }
-            shoot("04_style_${sk.name.lowercase()}")
-        }
-        rule.runOnIdle { vm.updateAppearance { it.copy(skin = com.ps2gamepad.model.ControllerSkin.PS2_CLASSIC) } }
         val n = com.ps2gamepad.motion.Vec3(0f, 0.7071f, 0.7071f)
         rule.runOnIdle {
             vm.onForeground(); vm.updateGyro { it.copy(enabled = true) }; vm.navigate(Screen.GYRO)
@@ -84,6 +79,9 @@ class ScreenshotCapture {
         shoot("05_gyro_screen")
         rule.runOnIdle { vm.navigate(Screen.CONTROLLER); motion.hold(tiltedUp(n, 12f, -9f), 5) }
         shoot("06_controller_gyro")
+        rule.onNodeWithTag("chip_Settings").performClick()
+        shoot("08_controller_settings")
+        rule.onNodeWithTag("chip_Close").performClick()
         rule.runOnIdle { vm.updateGyro { it.copy(enabled = false) } }
         rule.runOnIdle { vm.navigate(Screen.DASHBOARD) }
         shoot("10_dashboard")
@@ -107,5 +105,13 @@ class ScreenshotCapture {
         shoot("17_diagnostics")
         rule.runOnIdle { vm.navigate(Screen.CONNECTION) }
         shoot("18_connection")
+        rule.runOnIdle { vm.openController() }
+        shoot("20_mode_select")
+        rule.runOnIdle { vm.setPcInputEnabled(true); vm.chooseMode(com.ps2gamepad.model.GamingMode.PC) }
+        shoot("21_pc_controller")
+        rule.runOnIdle { vm.setPcEditMode(true) }
+        shoot("22_pc_edit")
+        rule.runOnIdle { vm.setPcEditMode(false); vm.navigate(Screen.PC_PROFILES) }
+        shoot("23_pc_profiles")
     }
 }

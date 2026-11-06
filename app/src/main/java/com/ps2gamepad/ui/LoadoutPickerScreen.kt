@@ -37,7 +37,6 @@ import com.ps2gamepad.model.ControllerProfile
 import com.ps2gamepad.settings.DefaultProfiles
 import com.ps2gamepad.settings.ProfileManager
 import com.ps2gamepad.ui.controller.ControllerPreview
-import com.ps2gamepad.ui.controller.Skins
 
 private val CardTop = Color(0xFF1F2438)
 private val CardBottom = Color(0xFF161A28)
@@ -72,7 +71,7 @@ fun LoadoutPickerScreen(vm: MainViewModel) {
                 }
             }
             items(loadouts, key = { it.id }) { p ->
-                LoadoutCard(vm, p, title = p.name, subtitle = p.appearance.skin.label + if (p.gyro.enabled) " · Gyro" else "",
+                LoadoutCard(vm, p, title = p.name, subtitle = (if (p.placements.isEmpty()) "Default layout" else "Custom layout") + if (p.gyro.enabled) " · Gyro" else "",
                     lastUsed = store.activeId == p.id, onDelete = { toDelete = p })
             }
             if (ProfileManager.canCreateLoadout(store)) {
@@ -94,7 +93,7 @@ fun LoadoutPickerScreen(vm: MainViewModel) {
 
 @Composable
 private fun LoadoutCard(vm: MainViewModel, p: ControllerProfile, title: String, subtitle: String, lastUsed: Boolean, onDelete: (() -> Unit)?) {
-    val accent = Skins.of(p.appearance.skin).accent
+    val accent = Color(0xFF22C55E)
     Column(
         Modifier.clip(RoundedCornerShape(18.dp))
             .background(Brush.verticalGradient(listOf(CardTop, CardBottom)))

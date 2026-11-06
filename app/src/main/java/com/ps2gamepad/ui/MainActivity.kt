@@ -51,7 +51,7 @@ class MainActivity : ComponentActivity() {
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
                 vm.screen.collect { s ->
-                    if (s == Screen.CONTROLLER) window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                    if (s == Screen.CONTROLLER || s == Screen.PC_CONTROLLER) window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
                     else window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
                 }
             }

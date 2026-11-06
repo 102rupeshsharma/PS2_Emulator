@@ -49,6 +49,15 @@ Severity follows the Phase 4 scale (Critical / High / Medium / Low).
 | B27 | High | Gyro: after an input reset (screen change, reconnect, back press) a held, unmoving tilt was not sent again, so the right stick stayed centred until the phone moved | Screenshot of the controller during development | The jitter filter remembers the input-reset counter; any reset forces the current tilt out | `GyroViewModelTest.heldTiltIsResentAfterAnInputReset` |
 | B28 | Medium | Loading saved settings dropped the gyro calibration (the repair step rebuilt the store without it) | Code review while adding the field | Neutral kept and validated (finite, non-zero) | `GyroViewModelTest.recenterIsSavedForNextTime` + codec |
 
+## Fixed in 1.5.0 (PC Mode development)
+
+| ID | Sev. | Bug | How found | Fix | Regression test |
+|---|---|---|---|---|---|
+| B29 | Medium | PC mouse ticker ran every 8 ms while the PC controller was open, even with nothing moving (battery/CPU) | Test run hung (infinite timer) | Ticker sleeps on a channel until the stick moves or a wheel button is held | `PcModeViewModelTest.wasdStickAndStickMouse` (stops when centred) |
+| B30 | Medium | Default PC layout: Wheel ▲ overlapped Start on a POCO F6-sized screen | `PcProfilesTest.defaultLayoutHasNoOverlapsOnThePhone` | Positions adjusted | same test |
+| B31 | Low | PC top bar covered LT/RT; "not connected" banner covered Select/Start | Screenshot review | Compact top bar; banner moved to bottom centre | Screenshot `21_pc_controller.png` |
+| B32 | Medium | Store repair rebuilt the store field by field, so a new field could be silently dropped (the cause of B28) | Code review while adding PC fields | `copy()` keeps every stored field | `PcProfilesTest.pcDataPersistsAndEmulatorDataIsUntouched` |
+
 ## Open / not fixed
 
 | ID | Sev. | Issue | Why open | Workaround |

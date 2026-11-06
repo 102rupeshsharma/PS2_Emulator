@@ -205,7 +205,9 @@ class SimpleHomeUiTest {
         rule.runOnIdle { hid.emit(HidEvent.ConnectionChanged(laptop, HidStateReducer.STATE_CONNECTED)) }
         rule.onNodeWithText("Connected to RUPESH ✓").assertIsDisplayed()
         rule.onNodeWithText("Open Controller").performClick()
-        rule.runOnIdle { assertEquals("Open Controller asks for a loadout", Screen.LOADOUTS, vm.screen.value) }
+        rule.runOnIdle { assertEquals("Open Controller asks for the mode", Screen.MODE_SELECT, vm.screen.value) }
+        rule.onNodeWithTag("mode_EMULATOR").performClick()
+        rule.runOnIdle { assertEquals(Screen.LOADOUTS, vm.screen.value) }
         rule.onNodeWithTag("play_standard").performClick()
         rule.runOnIdle { assertEquals(Screen.CONTROLLER, vm.screen.value) }
     }
@@ -215,18 +217,9 @@ class SimpleHomeUiTest {
         rule.onNodeWithText("Logs (testing)").assertDoesNotExist()
     }
 
-    @Test fun stylesTileOpensStylesAndPickingAStyleAppliesIt() {
-        rule.onNodeWithTag("homeStyles").performClick()
-        rule.onNodeWithText("Controller styles").assertIsDisplayed()
-        rule.onNodeWithTag("style_XBOX_STYLE").performClick()
-        rule.waitForIdle()
-        rule.runOnIdle { assertEquals(com.ps2gamepad.model.ControllerSkin.XBOX_STYLE, vm.activeProfile.value.appearance.skin) }
-        rule.onNodeWithText("IN USE").assertIsDisplayed()
-    }
-
-    @Test fun previewCardShowsCurrentStyle() {
+    @Test fun noStylesTileAnyMore() {
+        rule.onNodeWithTag("homeStyles").assertDoesNotExist()
         rule.onNodeWithTag("homePreview").assertIsDisplayed()
-        rule.onNodeWithText("PS2 Classic").assertIsDisplayed()
     }
 
     @Test fun moreOpensTheFullMenu() {

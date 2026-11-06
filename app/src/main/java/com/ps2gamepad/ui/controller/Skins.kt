@@ -2,9 +2,8 @@ package com.ps2gamepad.ui.controller
 
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
-import com.ps2gamepad.model.ControllerSkin
 
-/** How the four face buttons are marked. */
+/** How the four face buttons are marked (the controller uses PlayStation symbols). */
 enum class FaceMarks { PS_SYMBOLS, LETTERS }
 
 /**
@@ -47,51 +46,6 @@ object Skins {
         stickBase = Color(0xFF15161A), stickKnobLight = Color(0xFF41444D), stickKnobDark = Color(0xFF2E3038), accent = Color(0xFFFF3B30),
     )
 
-    val PS5 = SkinTheme(
-        screen = Color(0xFF0E1015), bodyTop = Color(0xFFF4F5F8), bodyBottom = Color(0xFFDADDE4), bodyEdge = Color(0xFFB8BCC6),
-        centerPanel = Color(0xFF1B1D24), key = Color(0xFF22252D), keyPressed = Color(0xFF3B6FF5), keyEdge = Color(0xFF0D0F14),
-        label = Color(0xFFE7E9EE), labelPressed = Color.White, faceMarks = FaceMarks.PS_SYMBOLS,
-        faceColors = listOf(Color(0xFFD9DCE3), Color(0xFFD9DCE3), Color(0xFFD9DCE3), Color(0xFFD9DCE3)),
-        stickBase = Color(0xFF15171C), stickKnobLight = Color(0xFF3A3E48), stickKnobDark = Color(0xFF1F2228), accent = Color(0xFF3B6FF5),
-        labelSelect = "CREATE", labelStart = "OPTIONS",
-    )
-
-    val XBOX = SkinTheme(
-        screen = Color(0xFF070A08), bodyTop = Color(0xFF2B2E2C), bodyBottom = Color(0xFF181A19), bodyEdge = Color(0xFF3A3F3C),
-        centerPanel = Color(0xFF202322), key = Color(0xFF2A2D2B), keyPressed = Color(0xFF107C10), keyEdge = Color(0xFF0E100F),
-        label = Color(0xFFC9CEC9), labelPressed = Color.White, faceMarks = FaceMarks.LETTERS,
-        faceColors = listOf(Color(0xFFFFC83D), Color(0xFFE74C3C), Color(0xFF5DC21E), Color(0xFF2D8CFF)),
-        faceLetters = listOf("Y", "B", "A", "X"),
-        stickBase = Color(0xFF111312), stickKnobLight = Color(0xFF454A47), stickKnobDark = Color(0xFF262927), accent = Color(0xFF5DC21E),
-        labelL2 = "LT", labelL1 = "LB", labelR2 = "RT", labelR1 = "RB", labelSelect = "VIEW", labelStart = "MENU", labelL3 = "LS", labelR3 = "RS",
-    )
-
-    val RETRO = SkinTheme(
-        screen = Color(0xFF15131C), bodyTop = Color(0xFFD9D6DE), bodyBottom = Color(0xFFBDB8C6), bodyEdge = Color(0xFF8E889B),
-        centerPanel = Color(0xFFA8A2B3), key = Color(0xFF55506A), keyPressed = Color(0xFF2E2A3D), keyEdge = Color(0xFF3B3650),
-        label = Color(0xFFF1EEF6), labelPressed = Color.White, faceMarks = FaceMarks.LETTERS,
-        faceColors = listOf(Color(0xFF3466D6), Color(0xFFD7263D), Color(0xFFF2B705), Color(0xFF1E9E5A)),
-        faceLetters = listOf("X", "A", "B", "Y"), faceFilled = true,
-        stickBase = Color(0xFF6E6884), stickKnobLight = Color(0xFF8C86A3), stickKnobDark = Color(0xFF4D4864), accent = Color(0xFFD7263D),
-        labelL2 = "ZL", labelL1 = "L", labelR2 = "ZR", labelR1 = "R",
-    )
-
-    val NEON = SkinTheme(
-        screen = Color(0xFF020306), bodyTop = Color(0xFF0B0D16), bodyBottom = Color(0xFF05060B), bodyEdge = Color(0xFF00E5FF),
-        centerPanel = Color(0xFF0A0C14), key = Color(0xFF0A0C14), keyPressed = Color(0xFF1D1036), keyEdge = Color(0xFF00E5FF),
-        label = Color(0xFF7DF9FF), labelPressed = Color(0xFFFF4FD8), faceMarks = FaceMarks.PS_SYMBOLS,
-        faceColors = listOf(Color(0xFF39FF14), Color(0xFFFF3864), Color(0xFF00E5FF), Color(0xFFFF4FD8)),
-        stickBase = Color(0xFF07080F), stickKnobLight = Color(0xFF1C2033), stickKnobDark = Color(0xFF0A0C14), accent = Color(0xFFFF4FD8),
-        glow = true,
-    )
-
-    fun of(s: ControllerSkin): SkinTheme = when (s) {
-        ControllerSkin.PS2_CLASSIC -> PS2
-        ControllerSkin.PS5_STYLE -> PS5
-        ControllerSkin.XBOX_STYLE -> XBOX
-        ControllerSkin.RETRO -> RETRO
-        ControllerSkin.NEON -> NEON
-    }
 }
 
 val LocalSkin = staticCompositionLocalOf { Skins.PS2 }

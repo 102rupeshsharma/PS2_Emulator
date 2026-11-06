@@ -1,5 +1,41 @@
 # Release notes
 
+## 1.6.0 (versionCode 10), 2026-11-06: one simple controller + in-controller settings
+
+- **Single controller look:** the 5 styles (PS2 Classic, PS5, Xbox, Retro, Neon) and the Styles screen
+  are removed. The controller always uses the simple PS2 button look (△ ○ ✕ □, L1/L2/R1/R2,
+  START/SELECT). Saved settings from older versions still load (the old style value is ignored).
+- **Settings button inside the controller:**
+  - Gyro aiming on/off: ON turns the right joystick into the gyro automatically, with Recenter.
+  - Opacity of all controls, size of all buttons, joystick size, and Reset.
+  - Changes apply live and are saved to the loadout in use.
+  - The panel blocks touches, so nothing behind it is pressed. It scrolls on short screens.
+- Everything else is unchanged: loadouts, layout editor, per-control opacity in Customize, PC Mode,
+  Bluetooth.
+- Tests: 298 (296 passed, 2 skipped).
+
+## 1.5.0 (versionCode 9), 2026-11-06: PC Gaming Mode
+
+- **Mode selection** on Open Controller: Emulator Gaming (unchanged) or PC Gaming. The choice is remembered.
+- **PC Gaming controller:** W/A/S/D stick, right-stick mouse, A/B/X/Y, LB/RB/LT/RT, Start/Select,
+  Sprint/Crouch, left/right mouse, wheel ▲/▼, gyro pause, recenter. Defaults follow the spec table;
+  everything is editable.
+- **Keyboard and mouse over Bluetooth HID** (composite descriptor: gamepad unchanged + keyboard ID 2 +
+  mouse ID 3). **Opt-in**, needs a one-time re-pair; emulator-only users keep the original descriptor.
+- **Key handling:** transitions only (no repeats), reference-counted shared keys, Ctrl/Shift/Alt
+  combinations (modifier down first, key up first), 6-key rollover. Everything is released on
+  disconnect, mode switch, focus loss, background or edit mode.
+- **Gyro mouse:** relative, from angular velocity, with orientation correction, bias calibration,
+  dead zone, smoothing, X/Y sensitivity, inversion, rate limit, pause and recenter.
+- **Custom buttons** (max 12 per profile) and **edit mode:** move, resize, opacity, rename, remap, delete,
+  restore defaults (with confirmation).
+- **PC profiles** (max 10): Generic PC Game, GTA V example, plus your own. Create, rename, duplicate,
+  delete, restore, persist. Separate from emulator loadouts.
+- **Fixed during development:** the mouse ticker woke the CPU every 8 ms even when idle (it now
+  sleeps until the stick moves); a default PC layout overlap (Wheel ▲ / Start); the top bar covering
+  LT/RT; the store-repair step could drop new fields (it now copies the stored data).
+- Tests: 299 (297 passed, 2 skipped). **Not yet tested on Windows.**
+
 ## 1.4.0 (versionCode 8), 2026-11-05: loadouts
 
 - **Loadouts: one saved setup per game, up to 5** (plus the built-in Default). Each loadout keeps

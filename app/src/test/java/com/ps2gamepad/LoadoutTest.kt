@@ -9,7 +9,6 @@ import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
 import com.ps2gamepad.model.BluetoothState
 import com.ps2gamepad.model.ControlId
-import com.ps2gamepad.model.ControllerSkin
 import com.ps2gamepad.model.DiagnosticLog
 import com.ps2gamepad.model.Placement
 import com.ps2gamepad.settings.DefaultProfiles
@@ -69,14 +68,14 @@ class LoadoutLimitTest {
 
     @Test fun newLoadoutCopiesTheTemplateSetup() {
         var s = ProfileManager.updateActive(DefaultProfiles.store()) {
-            it.copy(appearance = it.appearance.copy(skin = ControllerSkin.NEON, buttonScale = 1.2f),
+            it.copy(appearance = it.appearance.copy(showLabels = false, buttonScale = 1.2f),
                 placements = mapOf(ControlId.L1 to Placement(0.3f, 0.3f)), gyro = it.gyro.copy(enabled = true))
         }
         s = ProfileManager.createFrom(s, "GTA", s.activeId, ids)
         val p = s.active
         assertEquals("GTA", p.name)
         assertFalse(p.builtIn)
-        assertEquals(ControllerSkin.NEON, p.appearance.skin)
+        assertFalse(p.appearance.showLabels)
         assertEquals(1.2f, p.appearance.buttonScale)
         assertEquals(Placement(0.3f, 0.3f), p.placements[ControlId.L1])
         assertTrue(p.gyro.enabled)
@@ -100,6 +99,8 @@ class LoadoutViewModelTest {
     @Test fun openControllerAsksForALoadout() = runTest(dispatcher) {
         val vm = newVm(); runCurrent()
         vm.openController()
+        assertEquals("Open Controller asks for the gaming mode", Screen.MODE_SELECT, vm.screen.value)
+        vm.chooseMode(com.ps2gamepad.model.GamingMode.EMULATOR)
         assertEquals(Screen.LOADOUTS, vm.screen.value)
         vm.playLoadout(DefaultProfiles.STANDARD)
         assertEquals(Screen.CONTROLLER, vm.screen.value)
@@ -118,19 +119,19 @@ class LoadoutViewModelTest {
         val vm = newVm(); runCurrent()
         vm.createLoadout("GTA"); val gta = vm.profiles.value.activeId
         vm.savePlacements(mapOf(ControlId.FACE to Placement(0.6f, 0.4f, 1.3f)))
-        vm.updateAppearance { it.copy(skin = ControllerSkin.XBOX_STYLE) }
+        vm.updateAppearance { it.copy(buttonOpacity = 0.5f) }
         vm.updateGyro { it.copy(enabled = true) }
 
         vm.createLoadout("NFS"); val nfs = vm.profiles.value.activeId
         vm.resetLayout()
-        vm.updateAppearance { it.copy(skin = ControllerSkin.RETRO, controlOpacity = mapOf(ControlId.DPAD to 0.4f)) }
+        vm.updateAppearance { it.copy(stickScale = 1.3f, controlOpacity = mapOf(ControlId.DPAD to 0.4f)) }
         vm.updateGyro { it.copy(enabled = false) }
         assertNotEquals(gta, nfs)
 
         vm.playLoadout(gta)
         val g = vm.profiles.value.active
         assertEquals(Placement(0.6f, 0.4f, 1.3f), g.placements[ControlId.FACE])
-        assertEquals(ControllerSkin.XBOX_STYLE, g.appearance.skin)
+        assertEquals(0.5f, g.appearance.buttonOpacity)
         assertTrue(g.gyro.enabled)
 
         vm.flushSettings(); advanceUntilIdle()
@@ -140,7 +141,8 @@ class LoadoutViewModelTest {
         vm2.playLoadout(nfs)
         val nf = vm2.profiles.value.active
         assertEquals("NFS", nf.name)
-        assertEquals(ControllerSkin.RETRO, nf.appearance.skin)
+        assertEquals(1.3f, nf.appearance.stickScale)
+        assertEquals("GTA keeps its own stick size", 1f, g.appearance.stickScale)
         assertTrue(nf.placements.isEmpty())
         assertEquals(0.4f, nf.appearance.opacityOf(ControlId.DPAD))
     }
@@ -169,7 +171,7 @@ class LoadoutUiTest {
     @Before fun setUp() {
         vm = MainViewModel(FakeHid(), MutableStateFlow(BluetoothState.ENABLED), { emptyList() }, DiagnosticLog(), emptyList(), { 0L }, newId = { "u${n++}" })
         rule.setContent { App(vm, AppActions({}, {}, {}, {})) }
-        rule.runOnIdle { vm.openController() }
+        rule.runOnIdle { vm.chooseMode(com.ps2gamepad.model.GamingMode.EMULATOR) }
     }
 
     @Test fun pickerShowsDefaultAndNewCard() {
@@ -190,7 +192,7 @@ class LoadoutUiTest {
         }
         rule.onNodeWithText("EDIT LAYOUT").assertIsDisplayed()
         rule.onNodeWithTag("chip_Save").performClick()
-        rule.runOnIdle { vm.openController() }
+        rule.runOnIdle { vm.chooseMode(com.ps2gamepad.model.GamingMode.EMULATOR) }
         rule.onNodeWithText("1 / 5 loadouts").assertIsDisplayed()
         rule.onNodeWithText("LAST USED").assertIsDisplayed()
         rule.onNodeWithTag("play_standard").performClick()
@@ -201,7 +203,7 @@ class LoadoutUiTest {
     }
 
     @Test fun deleteNeedsConfirmation() {
-        rule.runOnIdle { vm.createLoadout("Temp"); vm.openController() }
+        rule.runOnIdle { vm.createLoadout("Temp"); vm.chooseMode(com.ps2gamepad.model.GamingMode.EMULATOR) }
         val id = vm.loadouts.first().id
         rule.onNodeWithTag("delete_$id").performClick()
         rule.onNodeWithText("Delete loadout \"Temp\"?").assertIsDisplayed()
@@ -212,7 +214,7 @@ class LoadoutUiTest {
     }
 
     @Test fun newCardDisappearsAtTheLimit() {
-        rule.runOnIdle { repeat(5) { vm.createLoadout("Game $it") }; vm.openController() }
+        rule.runOnIdle { repeat(5) { vm.createLoadout("Game $it") }; vm.chooseMode(com.ps2gamepad.model.GamingMode.EMULATOR) }
         rule.onNodeWithText("5 / 5 loadouts").assertIsDisplayed()
         rule.onNodeWithTag("newLoadoutCard").assertDoesNotExist()
     }

@@ -121,7 +121,8 @@ object ProfileManager {
         val profiles = s.profiles.filter { it.id.isNotBlank() && seen.add(it.id) }.map { it.sanitized() }.toMutableList()
         for (b in DefaultProfiles.all) if (profiles.none { it.id == b.id }) profiles.add(b)
         val active = if (profiles.any { it.id == s.activeId }) s.activeId else DefaultProfiles.STANDARD
-        return ProfileStore(active, profiles, s.lastConnection, validNeutral(s.gyroNeutral))
+        // copy(): every other field (and any future one) is kept as stored
+        return s.copy(activeId = active, profiles = profiles, gyroNeutral = validNeutral(s.gyroNeutral), pc = com.ps2gamepad.pc.PcProfileManager.normalize(s.pc))
     }
 
     /** A stored gyro neutral must be a finite, non-zero vector; anything else means "not calibrated". */

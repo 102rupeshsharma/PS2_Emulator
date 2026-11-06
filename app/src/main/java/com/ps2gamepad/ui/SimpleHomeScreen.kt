@@ -39,7 +39,6 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ps2gamepad.bluetooth.PhoneNameControl
 import com.ps2gamepad.ui.controller.ControllerPreview
-import com.ps2gamepad.ui.controller.Skins
 
 private val HomeTop = Color(0xFF151A2E)
 private val HomeBottom = Color(0xFF07080D)
@@ -63,7 +62,6 @@ fun SimpleHomeScreen(vm: MainViewModel, actions: AppActions) {
 
     val phoneName = name ?: PhoneNameControl.GAMEPAD_NAME
     val st = simpleStatus(bt, perm, hid, vm.knownPc, phoneName)
-    val skin = Skins.of(profile.appearance.skin)
     BackHandler { actions.exit() }
 
     Box(
@@ -154,22 +152,21 @@ fun SimpleHomeScreen(vm: MainViewModel, actions: AppActions) {
                     Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp))
                         .background(Brush.verticalGradient(listOf(CardTop, CardBottom)))
                         .border(1.dp, CardLine, RoundedCornerShape(24.dp))
-                        .clickable { vm.navigate(Screen.STYLES) }
+                        .clickable { vm.navigate(Screen.CUSTOMIZE) }
                         .padding(14.dp)
                         .testTag("homePreview"),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text("Your controller", color = Palette.TextDim, fontSize = 12.sp, modifier = Modifier.weight(1f))
-                        Box(Modifier.background(skin.accent.copy(alpha = 0.9f), RoundedCornerShape(50)).padding(horizontal = 10.dp, vertical = 3.dp)) {
-                            Text(profile.appearance.skin.label, color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        Box(Modifier.background(Color(0xFF4C6FFF), RoundedCornerShape(50)).padding(horizontal = 10.dp, vertical = 3.dp)) {
+                            Text(if (profile.gyro.enabled) "Gyro ON" else "Touch sticks", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                         }
                     }
                     ControllerPreview(vm.input, profile, Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)))
                     Text("Profile: ${profile.name}", color = Palette.TextDim, fontSize = 11.sp)
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    HomeTile("Styles", "5 looks", Color(0xFF8E5CFF), Modifier.weight(1f).testTag("homeStyles")) { vm.navigate(Screen.STYLES) }
                     HomeTile("Gyro", if (profile.gyro.enabled) "Tilt aim: ON" else "Tilt aim: off", Color(0xFF06B6D4), Modifier.weight(1f).testTag("homeGyro")) { vm.navigate(Screen.GYRO) }
                     HomeTile("Customize", "Size · opacity", Color(0xFF22C55E), Modifier.weight(1f).testTag("homeCustomize")) { vm.navigate(Screen.CUSTOMIZE) }
                     HomeTile("More", "Profiles", Color(0xFFF59E0B), Modifier.weight(1f).testTag("homeMore")) { vm.navigate(Screen.DASHBOARD) }

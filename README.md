@@ -127,3 +127,21 @@ Source layout: `bluetooth/` (HID layer), `controller/` (input manager, stick mat
 - Only one app on the phone can be a HID device at a time.
 - Earbuds on the phone play phone audio only; PC game audio is not forwarded.
 - Game profiles are tuning starting points, not tested presets.
+
+## 📥 Download
+
+### **[⬇️ Download the APK (v1.8.0, 2.7 MB)](https://raw.githubusercontent.com/102rupeshsharma/PS2_Emulator/main/download/PS2BluetoothGamepad.apk)**
+
+Tap the link on your Android phone, open the downloaded file and tap **Install**. It installs over an
+older version, and your loadouts and pairing are kept.
+
+## ❤️ Support this project
+
+The app is free. If it helped you and you'd like to say thanks, a small donation by **UPI** is welcome:
+
+```
+7483124898@superyes
+```
+
+Open any UPI app (Google Pay, PhonePe, Paytm, BHIM…), choose **Pay to UPI ID**, paste the ID above,
+enter any amount and send. Thank you! 🙏

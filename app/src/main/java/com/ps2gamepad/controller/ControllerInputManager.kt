@@ -67,8 +67,24 @@ class ControllerInputManager(
     /** State the host last received; null = unknown, so the next change is always sent. */
     private var lastSent: GamepadState? = null
 
+    /** Which controls currently hold each button (the built-in control and any extra buttons). */
+    private val holders = HashMap<ControllerButton, MutableSet<String>>()
+
     fun setButton(button: ControllerButton, pressed: Boolean, eventUptimeMs: Long = clock()) =
-        mutate(eventUptimeMs) { it.withButton(button, pressed) }
+        setButtonFrom(BASE_SOURCE, button, pressed, eventUptimeMs)
+
+    /**
+     * Press/release [button] on behalf of one control. The button stays down while ANY control
+     * holds it, so releasing an extra "Cross" never cuts a Cross still held on the face buttons.
+     */
+    fun setButtonFrom(source: String, button: ControllerButton, pressed: Boolean, eventUptimeMs: Long = clock()) {
+        synchronized(lock) {
+            val set = holders.getOrPut(button) { HashSet() }
+            if (pressed) set.add(source) else set.remove(source)
+            val held = set.isNotEmpty()
+            mutate(eventUptimeMs) { it.withButton(button, held) }
+        }
+    }
 
     fun setDpad(dpad: Dpad, eventUptimeMs: Long = clock()) =
         mutate(eventUptimeMs) { it.copy(dpad = dpad) }
@@ -81,6 +97,7 @@ class ControllerInputManager(
     fun releaseAll() {
         synchronized(lock) {
             pointerCounts.clear()
+            holders.clear()
             _activePointers.value = 0
             _state.value = GamepadState.NEUTRAL
             _resetEpoch.value = _resetEpoch.value + 1
@@ -97,6 +114,8 @@ class ControllerInputManager(
         if (count <= 0) pointerCounts.remove(source) else pointerCounts[source] = count
         _activePointers.value = pointerCounts.values.sum()
     }
+
+    companion object { const val BASE_SOURCE = "base" }
 
     private inline fun mutate(eventUptimeMs: Long, f: (GamepadState) -> GamepadState) {
         synchronized(lock) {

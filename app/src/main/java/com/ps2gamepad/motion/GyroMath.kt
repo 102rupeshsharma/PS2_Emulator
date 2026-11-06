@@ -132,15 +132,16 @@ class TiltCalculator(neutral: Vec3) {
 /**
  * Tilt -> right-stick vector, reusing the touch sticks' maths (StickMath.process): radial dead
  * zone without a jump at its edge, linear response, sensitivity, CIRCULAR clamp (|v| <= 1, direction
- * kept), then HID convention: y positive = down. With the defaults, tilting the top edge away from
- * you pushes the stick up, like pushing a real stick forward.
+ * kept), then HID convention: y positive = down. With the defaults, tilting the top edge towards
+ * you (pointing the phone up) looks up, like aiming a camera.
  */
 object GyroStickMapper {
     fun map(t: Tilt, s: GyroSettings): StickVector {
         val cfg = s.sanitized()
         val x = if (cfg.invertX) -t.xDeg else t.xDeg
-        val y = if (cfg.invertY) -t.yDeg else t.yDeg
-        // tilt.y > 0 = top edge towards you = stick down (HID +y)
+        // 1.7.0: up/down follows the phone like a camera: top edge towards you (phone tilts up)
+        // = stick UP (HID -y). The old direction was reported as reversed; Invert Y restores it.
+        val y = if (cfg.invertY) t.yDeg else -t.yDeg
         return StickMath.process(
             x, y, cfg.maxTiltDeg,
             StickSettings(deadZone = cfg.deadZoneDeg / cfg.maxTiltDeg, sensitivity = cfg.sensitivity, maxRange = 1f, curve = 1f),

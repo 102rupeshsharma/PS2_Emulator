@@ -91,6 +91,12 @@ class ScreenshotCapture {
         shoot("12_edit_layout")
         rule.runOnIdle {
             vm.setEditMode(false)
+            vm.saveLayout(emptyMap(), listOf(com.ps2gamepad.model.ExtraButton("x1", com.ps2gamepad.model.ControllerButton.CROSS, 0.62f, 0.2f)))
+        }
+        shoot("19_controller_added_button")
+        rule.runOnIdle { vm.saveLayout(emptyMap(), emptyList()) }
+        rule.runOnIdle {
+            vm.setEditMode(false)
             vm.updateAppearance { it.copy(buttonScale = 1.15f, buttonOpacity = 0.7f, background = ControllerBackground.BLUE, showLabels = false) }
             vm.navigate(Screen.CONTROLLER)
         }

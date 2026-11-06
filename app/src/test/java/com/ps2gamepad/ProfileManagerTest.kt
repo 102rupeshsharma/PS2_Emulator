@@ -126,10 +126,11 @@ class ProfileManagerTest {
     }
 
     @Test fun profilesNeverContainButtonMappings() {
-        // Regression guard: a profile has no field that could remap HID buttons.
+        // Regression guard: a profile has no field that could remap HID buttons. extraButtons (1.7.0)
+        // only ADDS touch buttons that send one of the existing 12 buttons; built-ins never change.
         val fields = ControllerProfile::class.java.declaredFields
             .filter { !java.lang.reflect.Modifier.isStatic(it.modifiers) }.map { it.name }
-        assertEquals(setOf("id", "name", "builtIn", "appearance", "left", "right", "placements", "gyro"), fields.toSet())
+        assertEquals(setOf("id", "name", "builtIn", "appearance", "left", "right", "placements", "gyro", "extraButtons"), fields.toSet())
     }
 
     @Test fun storeActiveFallsBackSafely() {

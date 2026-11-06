@@ -103,6 +103,26 @@ data class Placement(val cx: Float, val cy: Float, val scale: Float = 1f) {
 }
 
 /**
+ * A button the user added in the layout editor (1.7.0). It sends one of the 12 gamepad buttons, so
+ * the HID report never changes: it is a second place to press e.g. Cross or R3. Centre is a screen
+ * fraction (0..1); [scale] multiplies the default extra-button size.
+ */
+@Serializable
+data class ExtraButton(
+    val id: String,
+    val button: ControllerButton,
+    val cx: Float = 0.5f,
+    val cy: Float = 0.5f,
+    val scale: Float = 1f,
+) {
+    fun sanitized() = copy(
+        cx = cx.finiteOr(0.5f).coerceIn(0f, 1f),
+        cy = cy.finiteOr(0.5f).coerceIn(0f, 1f),
+        scale = scale.finiteOr(1f).coerceIn(0.5f, 2f),
+    )
+}
+
+/**
  * Gyroscope right stick: tilting the phone moves the right analog stick like a physical stick
  * (position-based: hold a tilt and the stick stays displaced; back to neutral and it centres).
  */
@@ -153,6 +173,8 @@ data class ControllerProfile(
     /** Only controls the user moved; everything else uses the default layout. */
     val placements: Map<ControlId, Placement> = emptyMap(),
     val gyro: GyroSettings = GyroSettings(),
+    /** Buttons added by the user, each mapped to a gamepad button. */
+    val extraButtons: List<ExtraButton> = emptyList(),
 ) {
     fun sanitized() = copy(
         name = name.trim().take(MAX_NAME).ifEmpty { "Profile" },
@@ -161,11 +183,15 @@ data class ControllerProfile(
         right = right.sanitized(),
         placements = placements.mapValues { it.value.sanitized() },
         gyro = gyro.sanitized(),
+        extraButtons = extraButtons.distinctBy { it.id }.filter { it.id.isNotBlank() }.take(MAX_EXTRA_BUTTONS).map { it.sanitized() },
     )
 
     fun stick(s: Stick) = if (s == Stick.LEFT) left else right
 
-    companion object { const val MAX_NAME = 32 }
+    companion object {
+        const val MAX_NAME = 32
+        const val MAX_EXTRA_BUTTONS = 8
+    }
 }
 
 @Serializable

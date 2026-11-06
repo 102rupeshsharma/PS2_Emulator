@@ -122,7 +122,7 @@ class GyroViewModelTest {
             motion.hold(tiltedUp(neutral, tx, ty), 50)
             val r = lastReport
             assertEquals("x sign for ($tx,$ty)", Math.signum(tx).toInt(), Integer.signum(r.z))
-            assertEquals("y sign for ($tx,$ty)", Math.signum(ty).toInt(), Integer.signum(r.rz))
+            assertEquals("y sign for ($tx,$ty)", -Math.signum(ty).toInt(), Integer.signum(r.rz)) // 1.7.0: tilt up = look up
         }
         motion.hold(neutral, 50)
         assertEquals(0, lastReport.z); assertEquals(0, lastReport.rz)
@@ -136,7 +136,7 @@ class GyroViewModelTest {
         val r = lastReport
         assertEquals(-127, r.x); assertEquals(0, r.y)
         assertTrue(r.isPressed(ControllerButton.CROSS))
-        assertTrue(r.z > 0 && r.rz < 0)
+        assertTrue(r.z > 0 && r.rz > 0) // top edge away = look down (1.7.0)
     }
 
     @Test fun gyroOffMeansSensorsOffAndRightStickCentred() = runTest(dispatcher) {

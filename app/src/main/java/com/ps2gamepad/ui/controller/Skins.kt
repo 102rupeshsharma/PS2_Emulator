@@ -38,14 +38,23 @@ data class SkinTheme(
 )
 
 object Skins {
+    /** Plain sky-blue buttons (1.7.0): solid fill, no outlines or glow, dark labels for contrast. */
     val PS2 = SkinTheme(
         screen = Color(0xFF0B0C0E), bodyTop = Color(0xFF26282E), bodyBottom = Color(0xFF1D1F24), bodyEdge = Color(0xFF33363E),
-        centerPanel = Color(0xFF25272D), key = Color(0xFF2C2F36), keyPressed = Color(0xFF4A4F5A), keyEdge = Color(0xFF14151A),
-        label = Color(0xFFB9BCC4), labelPressed = Color.White, faceMarks = FaceMarks.PS_SYMBOLS,
-        faceColors = listOf(Color(0xFF3FD18B), Color(0xFFFF5A5F), Color(0xFF7FB2FF), Color(0xFFF08CD0)),
-        stickBase = Color(0xFF15161A), stickKnobLight = Color(0xFF41444D), stickKnobDark = Color(0xFF2E3038), accent = Color(0xFFFF3B30),
+        centerPanel = Color(0x3338BDF8), key = Sky.Key, keyPressed = Sky.Pressed, keyEdge = Sky.Key,
+        label = Sky.Label, labelPressed = Color.White, faceMarks = FaceMarks.PS_SYMBOLS,
+        faceColors = List(4) { Sky.Key }, faceFilled = true,
+        stickBase = Color(0x4038BDF8), stickKnobLight = Color(0xFF7DD3FC), stickKnobDark = Sky.Key, accent = Sky.Key,
     )
 
+}
+
+/** The one button colour used by both controllers (emulator and PC). */
+object Sky {
+    val Key = Color(0xFF38BDF8)
+    val Pressed = Color(0xFF0369A1)
+    val Label = Color(0xFF0C2D48)
+    val SubLabel = Color(0xFF1E5A85)
 }
 
 val LocalSkin = staticCompositionLocalOf { Skins.PS2 }

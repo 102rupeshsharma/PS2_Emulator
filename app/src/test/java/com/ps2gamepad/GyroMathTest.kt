@@ -73,13 +73,14 @@ class GyroTiltTest {
         fun stick(x: Float, y: Float) = GyroStickMapper.map(Tilt(x, y), s)
         stick(15f, 0f).let { assertTrue(it.x > 0); assertEquals(0f, it.y, 1e-6f) }   // right side down -> right
         stick(-15f, 0f).let { assertTrue(it.x < 0); assertEquals(0f, it.y, 1e-6f) }  // left
-        stick(0f, -15f).let { assertTrue(it.y < 0); assertEquals(0f, it.x, 1e-6f) }  // top edge away -> stick UP (HID y negative)
-        stick(0f, 15f).let { assertTrue(it.y > 0); assertEquals(0f, it.x, 1e-6f) }   // top edge towards you -> down
+        stick(0f, -15f).let { assertTrue(it.y > 0); assertEquals(0f, it.x, 1e-6f) }  // top edge away (phone points down) -> look DOWN (HID y positive)
+        stick(0f, 15f).let { assertTrue(it.y < 0); assertEquals(0f, it.x, 1e-6f) }   // top edge towards you (phone points up) -> look UP
     }
 
     @Test fun diagonalsMoveBothAxesTogether() {
         for ((tx, ty, sx, sy) in listOf(
-            listOf(12f, -12f, 1f, -1f), listOf(-12f, -12f, -1f, -1f), listOf(12f, 12f, 1f, 1f), listOf(-12f, 12f, -1f, 1f),
+            // 1.7.0: up/down is mirrored (tilt y > 0 = look up = HID y < 0)
+            listOf(12f, -12f, 1f, 1f), listOf(-12f, -12f, -1f, 1f), listOf(12f, 12f, 1f, -1f), listOf(-12f, 12f, -1f, -1f),
         )) {
             val v = GyroStickMapper.map(Tilt(tx, ty), defaults)
             assertTrue("($tx,$ty)", v.x * sx > 0.2f && v.y * sy > 0.2f)
@@ -91,7 +92,7 @@ class GyroTiltTest {
         for (dirDeg in 0 until 360) {
             val a = Math.toRadians(dirDeg.toDouble())
             val v = GyroStickMapper.map(Tilt((15 * cos(a)).toFloat(), (15 * sin(a)).toFloat()), defaults)
-            val outDir = (deg(atan2(v.y.toDouble(), v.x.toDouble())) + 360f) % 360f
+            val outDir = (deg(atan2(-v.y.toDouble(), v.x.toDouble())) + 360f) % 360f // y mirrored since 1.7.0
             val diff = abs(((outDir - dirDeg + 540f) % 360f) - 180f)
             assertTrue("input $dirDeg° -> output $outDir°", diff < 0.01f)
         }
@@ -245,7 +246,7 @@ class GyroEngineTest {
         // tilt diagonally (right side down + top away) and HOLD for 10 s
         val tilted = tiltedUp(neutral, 10f, -10f)
         val first = e.hold(tilted, 300)!!.stick
-        assertTrue(first.x > 0.2f && first.y < -0.2f)
+        assertTrue(first.x > 0.2f && first.y > 0.2f) // top away = look down (1.7.0)
         val after10s = e.hold(tilted, 1000)!!.stick
         assertEquals("position-based, not velocity-based: still displaced after 10 s", first.x, after10s.x, 0.01f)
         assertEquals(first.y, after10s.y, 0.01f)

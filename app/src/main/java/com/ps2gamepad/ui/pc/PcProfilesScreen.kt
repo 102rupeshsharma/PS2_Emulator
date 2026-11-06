@@ -107,6 +107,9 @@ fun PcProfilesScreen(vm: MainViewModel) {
                         color = Palette.TextDim, fontSize = 10.sp)
                 }
                 Card {
+                    LabeledSwitch("Black theme (both controllers)", store.darkControls, "sw_pcDark") { vm.setDarkControls(it) }
+                }
+                Card {
                     Text("Gyro mouse: ${pc.active.name}", color = Palette.TextDim, fontSize = 12.sp)
                     LabeledSwitch("Gyro moves the mouse", m.gyroEnabled, "sw_pcGyro") { v -> set { it.copy(gyroEnabled = v) } }
                     LabeledSlider("Mouse sensitivity", m.gyroSensitivity, 0.1f..5f, ::mult, "s_pcSens") { v -> set { it.copy(gyroSensitivity = v) } }

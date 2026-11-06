@@ -58,7 +58,7 @@ fun SimpleHomeScreen(vm: MainViewModel, actions: AppActions) {
     val name by vm.phoneName.collectAsStateWithLifecycle()
     val profile by vm.activeProfile.collectAsStateWithLifecycle()
     vm.bondedHosts.collectAsStateWithLifecycle().value // recompose when the paired list changes
-    vm.profiles.collectAsStateWithLifecycle().value     // ...or the last connection changes
+    val store by vm.profiles.collectAsStateWithLifecycle() // ...or the last connection / theme changes
 
     val phoneName = name ?: PhoneNameControl.GAMEPAD_NAME
     val st = simpleStatus(bt, perm, hid, vm.knownPc, phoneName)
@@ -163,7 +163,7 @@ fun SimpleHomeScreen(vm: MainViewModel, actions: AppActions) {
                             Text(if (profile.gyro.enabled) "Gyro ON" else "Touch sticks", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                         }
                     }
-                    ControllerPreview(vm.input, profile, Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)))
+                    ControllerPreview(vm.input, profile, Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)), dark = store.darkControls)
                     Text("Profile: ${profile.name}", color = Palette.TextDim, fontSize = 11.sp)
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {

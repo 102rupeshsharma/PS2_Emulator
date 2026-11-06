@@ -1,5 +1,17 @@
 # Release notes
 
+## 1.8.0 (versionCode 12), 2026-11-06: soft-UI controllers, light and black theme
+
+- **Soft UI ("neumorphic") buttons** on both controllers (Emulator and PC): every button has the
+  background colour and is shaped by soft light/dark shadows; a pressed button looks pushed in.
+  Sticks are a pushed-in well with a raised knob.
+- **Background art removed:** the controller-body drawing is gone; the screen is one plain soft
+  colour. The Customize screen no longer shows the background and controller-opacity options.
+- **Light / Black theme:** the "Black theme" switch is in the controller's Settings (and in PC
+  profiles & settings). Light is the default; the choice is shared by both controllers and saved.
+- No change to input, HID reports, gyro or layouts. Tests: 304 (302 passed, 2 skipped).
+  Not yet checked on the phone.
+
 ## 1.7.0 (versionCode 11), 2026-11-06: gyro up/down fixed, sky-blue buttons, add your own buttons
 
 - **Gyro up/down fixed** (reported as reversed): tilting the phone up (top edge towards you) now

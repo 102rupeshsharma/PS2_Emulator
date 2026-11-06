@@ -93,6 +93,8 @@ fun ControllerScreen(vm: MainViewModel) {
     val perm by vm.permission.collectAsStateWithLifecycle()
     val hid by vm.hidState.collectAsStateWithLifecycle()
     val status = overallStatus(bt, perm, hid)
+    val store by vm.profiles.collectAsStateWithLifecycle()
+    val neu = NeuThemes.of(store.darkControls)
     var showOverlay by remember { mutableStateOf(false) }
     var showSettings by remember { mutableStateOf(false) }
 
@@ -106,8 +108,9 @@ fun ControllerScreen(vm: MainViewModel) {
     }
     LaunchedEffect(backHint) { if (backHint) { delay(2000); backHint = false } }
 
+    CompositionLocalProvider(LocalNeu provides neu) {
     BoxWithConstraints(
-        Modifier.fillMaxSize().background(Skins.PS2.screen).windowInsetsPadding(WindowInsets.displayCutout).testTag("controller")
+        Modifier.fillMaxSize().background(neu.bg).windowInsetsPadding(WindowInsets.displayCutout).testTag("controller")
     ) {
         val w = maxWidth.value
         val h = maxHeight.value
@@ -124,7 +127,7 @@ fun ControllerScreen(vm: MainViewModel) {
             horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically,
         ) {
             SmallChipButton("Home") { vm.navigate(Screen.HOME) }
-            ConnectionChip(status, Modifier.testTag("connectionChip"))
+            ConnectionChip(status, Modifier.testTag("connectionChip"), bg = neu.chip, fg = neu.text)
             SmallChipButton(if (showOverlay) "Hide" else "Live") { showOverlay = !showOverlay }
             SmallChipButton("Edit") { vm.setEditMode(true) }
             SmallChipButton("Settings") { vm.input.releaseAll(); showSettings = true }
@@ -145,7 +148,8 @@ fun ControllerScreen(vm: MainViewModel) {
             )
         }
         if (showOverlay) LiveOverlay(vm, Modifier.align(Alignment.Center).width(260.dp))
-        if (showSettings) ControllerSettingsPanel(vm, profile, Modifier.align(Alignment.Center)) { showSettings = false }
+        if (showSettings) ControllerSettingsPanel(vm, profile, store.darkControls, Modifier.align(Alignment.Center)) { showSettings = false }
+    }
     }
 }
 
@@ -167,8 +171,10 @@ fun ControllerLayout(
     extras: List<ExtraButton> = profile.extraButtons,
 ) {
     val a = profile.appearance
-    val skin = Skins.PS2
-    ControllerBackgroundArt(a.background, skin, Modifier.fillMaxSize().alpha(a.controllerOpacity))
+    val neu = LocalNeu.current
+    val skin = Skins.of(neu)
+    // 1.8.0: no controller body art, just the plain soft-UI background
+    NeuScreenBackground(neu, Modifier.fillMaxSize())
     val style = ControlStyle(showLabels = a.showLabels, haptics = a.haptics && interactive, faceSpacing = a.buttonSpacing, interactive = interactive)
     CompositionLocalProvider(LocalControlStyle provides style, LocalSkin provides skin) {
         Box(Modifier.fillMaxSize().alpha(a.buttonOpacity)) {
@@ -366,17 +372,18 @@ private fun LayoutEditor(vm: MainViewModel, profile: ControllerProfile, w: Float
 @Composable
 private fun MapChip(text: String, on: Boolean, tag: String, onClick: () -> Unit) {
     Text(
-        text, color = if (on) Sky.Label else Color.White, fontSize = 11.sp, fontWeight = if (on) FontWeight.Bold else FontWeight.Normal,
-        modifier = Modifier.background(if (on) Sky.Key else Color(0xFF2A2F3A), RoundedCornerShape(50)).clickable(onClick = onClick)
+        text, color = Color.White, fontSize = 11.sp, fontWeight = if (on) FontWeight.Bold else FontWeight.Normal,
+        modifier = Modifier.background(if (on) Palette.Info else Color(0xFF2A2F3A), RoundedCornerShape(50)).clickable(onClick = onClick)
             .padding(horizontal = 9.dp, vertical = 4.dp).testTag(tag),
     )
 }
 
 @Composable
 private fun SmallChipButton(text: String, onClick: () -> Unit) {
+    val neu = LocalNeu.current
     Text(
-        text, color = Palette.Text, fontSize = 11.sp,
-        modifier = Modifier.background(Color(0xCC000000), RoundedCornerShape(50)).clickable(onClick = onClick)
+        text, color = neu.text, fontSize = 11.sp,
+        modifier = Modifier.background(neu.chip, RoundedCornerShape(50)).clickable(onClick = onClick)
             .padding(horizontal = 10.dp, vertical = 4.dp).testTag("chip_$text"),
     )
 }
@@ -395,44 +402,6 @@ private fun LiveOverlay(vm: MainViewModel, modifier: Modifier) {
     }
 }
 
-/** Background art in the style's colours. Drawn in its own layer; it never recomposes on input. */
-@Composable
-fun ControllerBackgroundArt(bg: ControllerBackground, skin: SkinTheme, modifier: Modifier) {
-    when (bg) {
-        ControllerBackground.DS2_BODY -> PadBody(skin, modifier.background(skin.screen))
-        ControllerBackground.DARK -> Box(modifier.background(Color(0xFF17191D)))
-        ControllerBackground.BLACK -> Box(modifier.background(Color.Black))
-        ControllerBackground.BLUE -> Box(modifier.background(Brush.verticalGradient(listOf(Color(0xFF14213D), Color(0xFF0A1022)))))
-    }
-}
-
-@Composable
-private fun PadBody(skin: SkinTheme, modifier: Modifier) {
-    Canvas(modifier) {
-        val w = size.width
-        val h = size.height
-        val edge = skin.bodyEdge
-        val body = Brush.verticalGradient(listOf(skin.bodyTop, skin.bodyBottom))
-        for (left in listOf(true, false)) {
-            val cx = if (left) w * 0.19f else w * 0.81f
-            val gw = w * 0.36f
-            val gh = h * 0.82f
-            drawOval(edge, topLeft = Offset(cx - gw / 2 - 3f, h * 0.24f - 3f), size = Size(gw + 6f, gh + 6f))
-            drawOval(body, topLeft = Offset(cx - gw / 2, h * 0.24f), size = Size(gw, gh))
-        }
-        drawRoundRect(edge, topLeft = Offset(w * 0.015f - 3f, h * 0.09f - 3f), size = Size(w * 0.97f + 6f, h * 0.62f + 6f), cornerRadius = CornerRadius(h * 0.24f))
-        drawRoundRect(body, topLeft = Offset(w * 0.015f, h * 0.09f), size = Size(w * 0.97f, h * 0.62f), cornerRadius = CornerRadius(h * 0.24f))
-        for (left in listOf(true, false)) {
-            val cx = if (left) w * 0.19f else w * 0.81f
-            val gw = w * 0.36f
-            drawOval(skin.bodyBottom, topLeft = Offset(cx - gw / 2 + 3f, h * 0.45f), size = Size(gw - 6f, h * 0.61f - 3f))
-        }
-        // centre panel (touchpad area on the PS5 style), with an accent light bar
-        drawRoundRect(skin.centerPanel, topLeft = Offset(w * 0.37f, h * 0.15f), size = Size(w * 0.26f, h * 0.33f), cornerRadius = CornerRadius(h * 0.06f))
-        drawRoundRect(skin.accent.copy(alpha = 0.85f), topLeft = Offset(w * 0.44f, h * 0.135f), size = Size(w * 0.12f, h * 0.012f), cornerRadius = CornerRadius(h * 0.01f))
-    }
-}
-
 /**
  * Right stick when the gyro drives it: shows the value that is in the HID report (read in the
  * draw phase, so only this canvas redraws). Not a touch control: tap = recenter.
@@ -440,21 +409,17 @@ private fun PadBody(skin: SkinTheme, modifier: Modifier) {
 @Composable
 private fun GyroStickIndicator(input: ControllerInputManager, onRecenter: () -> Unit, modifier: Modifier) {
     val state = input.state.collectAsStateWithLifecycle()
-    val skin = LocalSkin.current
+    val neu = LocalNeu.current
     Box(modifier.clickable(onClick = onRecenter), contentAlignment = Alignment.BottomCenter) {
         Canvas(Modifier.fillMaxSize()) {
             val s = size.minDimension
             val travel = s * STICK_TRAVEL
-            val c = center
-            drawCircle(skin.stickBase, radius = travel + s * 0.06f, center = c)
-            drawCircle(skin.accent.copy(alpha = 0.8f), radius = travel + s * 0.05f, center = c, style = androidx.compose.ui.graphics.drawscope.Stroke(s * 0.012f))
             val g = state.value
-            val k = c + Offset(g.rightX / 127f * travel, g.rightY / 127f * travel)
-            val kr = s * 0.15f
-            drawCircle(Brush.radialGradient(listOf(skin.stickKnobLight, skin.stickKnobDark), center = k, radius = kr * 1.4f), radius = kr, center = k)
-            drawCircle(skin.accent, radius = kr, center = k, style = androidx.compose.ui.graphics.drawscope.Stroke(s * 0.01f))
+            val k = Offset(g.rightX / 127f * travel, g.rightY / 127f * travel)
+            drawNeuStick(neu, center, travel, s, k, held = false)
+            drawCircle(neu.accent, radius = s * 0.025f, center = center + k) // red dot = gyro
         }
-        Text("GYRO · tap to recenter", color = Color.White, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+        Text("GYRO · tap to recenter", color = neu.label, fontSize = 9.sp, fontWeight = FontWeight.Bold)
     }
 }
 
@@ -464,13 +429,14 @@ private fun GyroStickIndicator(input: ControllerInputManager, onRecenter: () -> 
  * saved to the loadout in use. The panel takes all touches, so nothing behind it is pressed.
  */
 @Composable
-private fun ControllerSettingsPanel(vm: MainViewModel, profile: ControllerProfile, modifier: Modifier, onClose: () -> Unit) {
+private fun ControllerSettingsPanel(vm: MainViewModel, profile: ControllerProfile, dark: Boolean, modifier: Modifier, onClose: () -> Unit) {
     val a = profile.appearance
     val gyroSending by vm.gyroSending.collectAsStateWithLifecycle()
+    val neu = LocalNeu.current
     Column(
         modifier.width(380.dp).padding(vertical = 40.dp)
-            .background(Color(0xF2121621), RoundedCornerShape(18.dp))
-            .border(1.dp, Color(0x55FFFFFF), RoundedCornerShape(18.dp))
+            .background(neu.panel, RoundedCornerShape(18.dp))
+            .border(1.dp, neu.labelDim.copy(alpha = 0.4f), RoundedCornerShape(18.dp))
             .pointerInput(Unit) { awaitPointerEventScope { while (true) awaitPointerEvent().changes.forEach { it.consume() } } }
             .verticalScroll(androidx.compose.foundation.rememberScrollState()) // short screens: nothing is cut off
             .padding(16.dp)
@@ -478,13 +444,13 @@ private fun ControllerSettingsPanel(vm: MainViewModel, profile: ControllerProfil
         verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("Controller settings", color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+            Text("Controller settings", color = neu.text, fontSize = 17.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
             SmallChipButton("Close") { onClose() }
         }
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Text("Gyro aiming", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-                Text("ON: the right joystick becomes the gyro (tilt the phone to look around)", color = Palette.TextDim, fontSize = 11.sp)
+                Text("Gyro aiming", color = neu.text, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                Text("ON: the right joystick becomes the gyro (tilt the phone to look around)", color = neu.textDim, fontSize = 11.sp)
             }
             androidx.compose.material3.Switch(
                 checked = profile.gyro.enabled,
@@ -495,9 +461,16 @@ private fun ControllerSettingsPanel(vm: MainViewModel, profile: ControllerProfil
         if (profile.gyro.enabled) {
             Text(
                 if (gyroSending) "Hold the phone the way you play, then tap Recenter." else "Starting gyro…",
-                color = Palette.TextDim, fontSize = 11.sp,
+                color = neu.textDim, fontSize = 11.sp,
             )
             SmallChipButton("Recenter gyro") { vm.gyroRecenter() }
+        }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text("Black theme", color = neu.text, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                Text("OFF: light buttons. ON: black buttons. Used by both controllers.", color = neu.textDim, fontSize = 11.sp)
+            }
+            androidx.compose.material3.Switch(checked = dark, onCheckedChange = { vm.setDarkControls(it) }, modifier = Modifier.testTag("set_dark"))
         }
         SettingSlider("Opacity (all controls)", a.buttonOpacity, 0.2f..1f, "set_opacity") { v -> vm.updateAppearance { it.copy(buttonOpacity = v) } }
         SettingSlider("Button size (all buttons)", a.buttonScale, 0.6f..1.6f, "set_buttonSize") { v -> vm.updateAppearance { it.copy(buttonScale = v) } }
@@ -510,6 +483,6 @@ private fun ControllerSettingsPanel(vm: MainViewModel, profile: ControllerProfil
 
 @Composable
 private fun SettingSlider(label: String, value: Float, range: ClosedFloatingPointRange<Float>, tag: String, onChange: (Float) -> Unit) {
-    Text("$label: ${(value * 100).toInt()} %", color = Color.White, fontSize = 13.sp)
+    Text("$label: ${(value * 100).toInt()} %", color = LocalNeu.current.text, fontSize = 13.sp)
     Slider(value = value.coerceIn(range), onValueChange = onChange, valueRange = range, modifier = Modifier.testTag(tag))
 }

@@ -74,9 +74,10 @@ import kotlin.math.hypot
 import kotlin.math.min
 
 private val PcBg = Color(0xFF0A0D14)
-private val PcKey = Color(0xFF1B2232)
-private val PcKeyPressed = Color(0xFF2F6BFF)
-private val PcEdge = Color(0xFF34405C)
+// Plain sky-blue buttons, same colour as the emulator controller (1.7.0)
+private val PcKey = com.ps2gamepad.ui.controller.Sky.Key
+private val PcKeyPressed = com.ps2gamepad.ui.controller.Sky.Pressed
+private val PcEdge = com.ps2gamepad.ui.controller.Sky.Key
 private val PcAccent = Color(0xFF06B6D4)
 
 /** Layout geometry shared by play and edit mode: control size in dp for a screen of [w] x [h]. */
@@ -224,13 +225,12 @@ private fun PcButton(vm: MainViewModel, c: PcControl, epoch: Int, modifier: Modi
                 if (now) vm.pcPress(c, t) else vm.pcRelease(c, t)
             }
         }.background(if (pressed) PcKeyPressed else PcKey, RoundedCornerShape(30))
-            .border(1.5.dp, if (pressed) Color.White else PcEdge, RoundedCornerShape(30))
             .testTag("pc_${c.id}"),
         contentAlignment = Alignment.Center,
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(c.label, color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1)
-            Text(c.action.label, color = Color(0xFF9FB3D9), fontSize = 9.sp, maxLines = 1)
+            Text(c.label, color = if (pressed) Color.White else com.ps2gamepad.ui.controller.Sky.Label, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+            Text(c.action.label, color = if (pressed) Color(0xFFE0F2FE) else com.ps2gamepad.ui.controller.Sky.SubLabel, fontSize = 9.sp, maxLines = 1)
         }
     }
 }
@@ -271,10 +271,9 @@ private fun PcStick(c: PcControl, epoch: Int, modifier: Modifier, mouse: Boolean
         ) {
             val s = size.minDimension
             val travel = s * 0.30f
-            drawCircle(PcKey, radius = s * 0.48f)
-            drawCircle(PcEdge, radius = s * 0.48f, style = Stroke(s * 0.012f))
-            drawCircle(PcAccent.copy(alpha = 0.25f), radius = travel, style = Stroke(s * 0.008f))
-            drawCircle(Brush.radialGradient(listOf(Color(0xFF3A4766), Color(0xFF1B2232)), center = center + knob, radius = s * 0.2f), radius = s * 0.16f, center = center + knob)
+            drawCircle(PcKey.copy(alpha = 0.25f), radius = s * 0.48f)
+            drawCircle(PcKey.copy(alpha = 0.35f), radius = travel, style = Stroke(s * 0.008f))
+            drawCircle(PcKey, radius = s * 0.16f, center = center + knob)
         }
         Text(
             if (mouse) "${c.label} · mouse" else "${c.label} · ${KeyCodes.name(c.up)}${KeyCodes.name(c.left)}${KeyCodes.name(c.down)}${KeyCodes.name(c.right)}",
@@ -310,7 +309,7 @@ private fun EditableControl(
             }
             .testTag("pcedit_${c.id}"),
         contentAlignment = Alignment.Center,
-    ) { Text(c.label, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1) }
+    ) { Text(c.label, color = com.ps2gamepad.ui.controller.Sky.Label, fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1) }
 }
 
 /** Side panel to edit the selected control. Every change is saved immediately to the active profile. */

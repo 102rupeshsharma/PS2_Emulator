@@ -2,7 +2,7 @@
 
 ## 📥 Download
 
-### **[⬇️ Download the APK (v1.6.0, 2.7 MB)](download/PS2BluetoothGamepad.apk?raw=true)**
+### **[⬇️ Download the APK (v1.7.0, 2.7 MB)](download/PS2BluetoothGamepad.apk?raw=true)**
 
 **Install on your phone:**
 1. Open this page on your Android phone and tap the download link above.
@@ -30,7 +30,7 @@ Requires Android 9 or newer with Bluetooth.
 | **Loadouts (one per game)** | **Controller with gyro** |
 | ![Loadouts](docs/screenshots/07_loadouts.png) | ![Controller gyro](docs/screenshots/06_controller_gyro.png) |
 
-SHA-256: `a398c78caef7e35d20608b27d80fd8367ed7a86fe02c4d816b0e300671039448`
+SHA-256: `ae6912a3440621408f687c45397f1c2387d24fa04904678d1cecc0c2e6d181ae`
 
 ---
 

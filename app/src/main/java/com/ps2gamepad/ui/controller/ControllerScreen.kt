@@ -57,6 +57,7 @@ import com.ps2gamepad.model.ControlId
 import com.ps2gamepad.model.ControllerBackground
 import com.ps2gamepad.model.ControllerButton
 import com.ps2gamepad.model.ControllerProfile
+import com.ps2gamepad.model.ExtraButton
 import com.ps2gamepad.model.Stick
 import com.ps2gamepad.ui.ConnectionChip
 import com.ps2gamepad.ui.MainViewModel
@@ -67,6 +68,20 @@ import kotlinx.coroutines.delay
 
 /** Places a child by its centre and size (dp values). */
 private fun Modifier.place(r: ControlRect) = this.offset(r.left.dp, r.top.dp).size(r.w.dp, r.h.dp)
+
+/** Size/position of a user-added button on a [w] x [h] dp screen (same size rules for play and edit). */
+internal fun extraRect(e: ExtraButton, w: Float, h: Float, a: com.ps2gamepad.model.Appearance): ControlRect {
+    val d = LayoutEngine.unit(w, h) * 0.2f * e.scale * a.buttonScale
+    return LayoutEngine.clampInside(ControlRect(e.cx * w, e.cy * h, d * 1.3f, d), w, h)
+}
+
+/** Short label for a user-added button (PlayStation symbols for the face buttons). */
+internal fun extraLabel(b: ControllerButton) = when (b) {
+    ControllerButton.TRIANGLE -> "△"; ControllerButton.CIRCLE -> "○"
+    ControllerButton.CROSS -> "✕"; ControllerButton.SQUARE -> "□"
+    ControllerButton.SELECT -> "SEL"; ControllerButton.START -> "START"
+    else -> b.label
+}
 
 /** Full-screen landscape DualShock 2 style controller, plus the layout editor. */
 @Composable
@@ -148,6 +163,8 @@ fun ControllerLayout(
     /** Gyro drives the right stick: show the live gyro indicator instead of the touch stick. */
     gyroActive: Boolean = false,
     onGyroRecenter: () -> Unit = {},
+    /** User-added buttons (the layout editor passes its unsaved draft). */
+    extras: List<ExtraButton> = profile.extraButtons,
 ) {
     val a = profile.appearance
     val skin = Skins.PS2
@@ -177,6 +194,17 @@ fun ControllerLayout(
             DigitalButton(ControllerButton.R3, input, epoch, skin.labelR3, KeyShape.CIRCLE, fs(ControlId.R3, 0.3f), Modifier.at(ControlId.R3).testTag("btn_R3"))
             DigitalButton(ControllerButton.SELECT, input, epoch, skin.labelSelect, KeyShape.PILL, fs(ControlId.SELECT, 0.34f), Modifier.at(ControlId.SELECT).testTag("btn_SELECT"))
             DigitalButton(ControllerButton.START, input, epoch, skin.labelStart, KeyShape.PILL, fs(ControlId.START, 0.34f), Modifier.at(ControlId.START).testTag("btn_START"))
+            if (extras.isNotEmpty()) BoxWithConstraints(Modifier.fillMaxSize()) {
+                val cw = maxWidth.value
+                val ch = maxHeight.value
+                for (e in extras) {
+                    val r = extraRect(e, cw, ch, a)
+                    DigitalButton(
+                        e.button, input, epoch, extraLabel(e.button), KeyShape.ROUNDED, (r.h * 0.34f).sp,
+                        Modifier.place(r).testTag("extra_${e.id}"), source = "extra_${e.id}",
+                    )
+                }
+            }
         }
     }
 }
@@ -193,11 +221,14 @@ private fun LayoutEditor(vm: MainViewModel, profile: ControllerProfile, w: Float
     // recompositions, so a captured/updated-on-recompose copy would be stale (drops were lost).
     val draftState = remember(w, h) { mutableStateOf(LayoutEngine.resolve(w, h, profile.appearance, profile.placements)) }
     var draft by draftState
+    val extrasState = remember(w, h) { mutableStateOf(profile.extraButtons) }
+    var extras by extrasState
     var selected by remember { mutableStateOf<ControlId?>(null) }
+    var selectedExtra by remember { mutableStateOf<String?>(null) }
     var message by remember { mutableStateOf<String?>("Drag a control to move it. Tap to select and resize.") }
     val density = LocalDensity.current.density
 
-    ControllerLayout(vm.input, 0, profile, draft, interactive = false)
+    ControllerLayout(vm.input, 0, profile, draft, interactive = false, extras = extras)
 
     for (id in ControlId.entries) {
         val rect = draft.getValue(id)
@@ -205,11 +236,11 @@ private fun LayoutEditor(vm: MainViewModel, profile: ControllerProfile, w: Float
             Modifier.place(rect)
                 .border(if (id == selected) 3.dp else 1.dp, if (id == selected) Palette.Info else Color.White.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
                 .testTag("edit_${id.name}")
-                .pointerInput(id) { detectTapGestures { selected = id } }
+                .pointerInput(id) { detectTapGestures { selected = id; selectedExtra = null } }
                 .pointerInput(id, draftState) {
                     var start: ControlRect? = null
                     detectDragGestures(
-                        onDragStart = { selected = id; start = draftState.value.getValue(id) },
+                        onDragStart = { selected = id; selectedExtra = null; start = draftState.value.getValue(id) },
                         onDrag = { change, amount ->
                             change.consume()
                             val r = draftState.value.getValue(id)
@@ -231,6 +262,29 @@ private fun LayoutEditor(vm: MainViewModel, profile: ControllerProfile, w: Float
         )
     }
 
+    // user-added buttons: tap selects, drag moves (they may sit anywhere, even over other controls)
+    for (e in extras) {
+        val r = extraRect(e, w, h, profile.appearance)
+        Box(
+            Modifier.place(r)
+                .border(if (e.id == selectedExtra) 3.dp else 1.dp, if (e.id == selectedExtra) Palette.Info else Color.White.copy(alpha = 0.7f), RoundedCornerShape(8.dp))
+                .testTag("editx_${e.id}")
+                .pointerInput(e.id) { detectTapGestures { selectedExtra = e.id; selected = null } }
+                .pointerInput(e.id, extrasState) {
+                    detectDragGestures(
+                        onDragStart = { selectedExtra = e.id; selected = null },
+                        onDrag = { change, amount ->
+                            change.consume()
+                            extras = extrasState.value.map {
+                                if (it.id != e.id) it
+                                else it.copy(cx = (it.cx + amount.x / density / w).coerceIn(0f, 1f), cy = (it.cy + amount.y / density / h).coerceIn(0f, 1f))
+                            }
+                        },
+                    )
+                }
+        )
+    }
+
     Column(
         Modifier.fillMaxSize().padding(top = 6.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -243,12 +297,38 @@ private fun LayoutEditor(vm: MainViewModel, profile: ControllerProfile, w: Float
             SmallChipButton("Save") {
                 val placements = draft.filter { (id, r) -> r != defaults.getValue(id) }
                     .mapValues { (id, r) -> LayoutEngine.toPlacement(r, defaults.getValue(id), w, h) }
-                vm.savePlacements(placements)
-                vm.log.add("Layout saved (${placements.size} control(s) moved/resized)")
+                vm.saveLayout(placements, extras)
+                vm.log.add("Layout saved (${placements.size} control(s) moved/resized, ${extras.size} added button(s))")
                 vm.setEditMode(false)
             }
             SmallChipButton("Cancel") { vm.setEditMode(false) }
             SmallChipButton("Defaults") { draft = defaults; message = "Default positions (press Save to keep)" }
+            if (extras.size < ControllerProfile.MAX_EXTRA_BUTTONS) SmallChipButton("+ Button") {
+                val e = ExtraButton(java.util.UUID.randomUUID().toString().take(6), ControllerButton.CROSS, 0.5f, 0.55f)
+                extras = extras + e
+                selectedExtra = e.id; selected = null
+                message = "Button added: drag it into place, then choose what it presses"
+            }
+        }
+        val selX = extras.firstOrNull { it.id == selectedExtra }
+        if (selX != null) {
+            Column(
+                Modifier.padding(top = 4.dp).background(Color(0xE6000000), RoundedCornerShape(10.dp)).padding(horizontal = 10.dp, vertical = 4.dp).testTag("extraEditor"),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                fun change(f: (ExtraButton) -> ExtraButton) { extras = extras.map { if (it.id == selX.id) f(it) else it } }
+                Text("Added button presses: ${selX.button.label}", color = Color.White, fontSize = 11.sp)
+                for (row in ControllerButton.entries.chunked(6)) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.padding(top = 3.dp)) {
+                        for (b in row) MapChip(b.label, b == selX.button, "map_${b.name}") { change { it.copy(button = b) } }
+                    }
+                }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("Size ${(selX.scale * 100).toInt()} %", color = Color.White, fontSize = 11.sp, modifier = Modifier.width(90.dp))
+                    Slider(value = selX.scale, valueRange = 0.5f..2f, modifier = Modifier.width(200.dp).testTag("extraSize"), onValueChange = { v -> change { it.copy(scale = v) } })
+                    MapChip("Delete", false, "extra_delete") { extras = extras.filter { it.id != selX.id }; selectedExtra = null; message = "Button removed (press Save to keep)" }
+                }
+            }
         }
         val sel = selected
         if (sel != null) {
@@ -281,6 +361,15 @@ private fun LayoutEditor(vm: MainViewModel, profile: ControllerProfile, w: Float
             Text(it, color = Color.White, fontSize = 11.sp, modifier = Modifier.padding(top = 4.dp).background(Color(0xCC000000), RoundedCornerShape(6.dp)).padding(horizontal = 8.dp, vertical = 2.dp))
         }
     }
+}
+
+@Composable
+private fun MapChip(text: String, on: Boolean, tag: String, onClick: () -> Unit) {
+    Text(
+        text, color = if (on) Sky.Label else Color.White, fontSize = 11.sp, fontWeight = if (on) FontWeight.Bold else FontWeight.Normal,
+        modifier = Modifier.background(if (on) Sky.Key else Color(0xFF2A2F3A), RoundedCornerShape(50)).clickable(onClick = onClick)
+            .padding(horizontal = 9.dp, vertical = 4.dp).testTag(tag),
+    )
 }
 
 @Composable
@@ -357,8 +446,7 @@ private fun GyroStickIndicator(input: ControllerInputManager, onRecenter: () -> 
             val s = size.minDimension
             val travel = s * STICK_TRAVEL
             val c = center
-            drawCircle(skin.keyEdge, radius = travel + s * 0.06f, center = c)
-            drawCircle(skin.stickBase, radius = travel + s * 0.045f, center = c)
+            drawCircle(skin.stickBase, radius = travel + s * 0.06f, center = c)
             drawCircle(skin.accent.copy(alpha = 0.8f), radius = travel + s * 0.05f, center = c, style = androidx.compose.ui.graphics.drawscope.Stroke(s * 0.012f))
             val g = state.value
             val k = c + Offset(g.rightX / 127f * travel, g.rightY / 127f * travel)
@@ -366,7 +454,7 @@ private fun GyroStickIndicator(input: ControllerInputManager, onRecenter: () -> 
             drawCircle(Brush.radialGradient(listOf(skin.stickKnobLight, skin.stickKnobDark), center = k, radius = kr * 1.4f), radius = kr, center = k)
             drawCircle(skin.accent, radius = kr, center = k, style = androidx.compose.ui.graphics.drawscope.Stroke(s * 0.01f))
         }
-        Text("GYRO · tap to recenter", color = skin.label, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+        Text("GYRO · tap to recenter", color = Color.White, fontSize = 9.sp, fontWeight = FontWeight.Bold)
     }
 }
 

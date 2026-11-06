@@ -1,5 +1,20 @@
 # Release notes
 
+## 1.7.0 (versionCode 11), 2026-11-06: gyro up/down fixed, sky-blue buttons, add your own buttons
+
+- **Gyro up/down fixed** (reported as reversed): tilting the phone up (top edge towards you) now
+  looks up, like aiming a camera. This applies to both the Emulator gyro right stick and the PC gyro
+  mouse. Left/right is unchanged. The "Invert Y" switches still flip it if a game wants the other
+  direction.
+- **Plain sky-blue buttons** on both controllers (Emulator and PC): solid fill, no outlines or
+  glow, dark labels; a pressed button turns dark blue.
+- **Add buttons to the Emulator controller:** Edit → "+ Button" (up to 8 per loadout). Drag the
+  new button anywhere, choose which gamepad button it presses (any of the 12), resize it or delete
+  it, then Save. It is a second place to press an existing button, so the HID report and PCSX2
+  bindings do not change. Holding the same button in two places keeps it pressed until both are
+  released. The PC controller already had "+ Button" with key mapping.
+- Tests: 303 (301 passed, 2 skipped). Not yet checked on the phone.
+
 ## 1.6.0 (versionCode 10), 2026-11-06: one simple controller + in-controller settings
 
 - **Single controller look:** the 5 styles (PS2 Classic, PS5, Xbox, Retro, Neon) and the Styles screen

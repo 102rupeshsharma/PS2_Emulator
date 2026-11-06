@@ -260,10 +260,10 @@ class GyroMouseTest {
                 engine().run(dev(upScreen * -r), up, 50, rotation).let { assertTrue("yaw right rot=$rotation up=$upScreen $it", it.first > 50f && abs(it.second) < 1f) }
                 // roll right side down -> mouse right
                 engine().run(dev(e2 * -r), up, 50, rotation).let { assertTrue("roll right $it", it.first > 50f && abs(it.second) < 1f) }
-                // tilt top edge away (forward) -> mouse up (negative y)
-                engine().run(dev(e1 * r), up, 50, rotation).let { assertTrue("forward $it", it.second < -50f && abs(it.first) < 1f) }
-                // backward -> down
-                engine().run(dev(e1 * -r), up, 50, rotation).let { assertTrue("backward $it", it.second > 50f) }
+                // tilt top edge away (forward, phone points down) -> mouse DOWN (1.7.0: was reversed)
+                engine().run(dev(e1 * r), up, 50, rotation).let { assertTrue("forward $it", it.second > 50f && abs(it.first) < 1f) }
+                // top edge towards you (phone points up) -> mouse up
+                engine().run(dev(e1 * -r), up, 50, rotation).let { assertTrue("backward $it", it.second < -50f) }
             }
         }
     }

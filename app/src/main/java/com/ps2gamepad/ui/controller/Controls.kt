@@ -23,7 +23,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.rememberTextMeasurer
@@ -83,6 +82,8 @@ fun DigitalButton(
     shape: KeyShape,
     fontSize: TextUnit,
     modifier: Modifier = Modifier,
+    /** Which control is pressing (extra buttons use their own id so they combine with the built-in one). */
+    source: String = ControllerInputManager.BASE_SOURCE,
 ) {
     var pressed by remember(resetKey) { mutableStateOf(false) }
     val haptic = rememberHaptic()
@@ -91,10 +92,10 @@ fun DigitalButton(
     Box(
         modifier.inputIfInteractive(resetKey) { pointers, t ->
             val now = pointers.isNotEmpty()
-            input.reportPointers(button.name, pointers.size)
+            input.reportPointers(if (source == ControllerInputManager.BASE_SOURCE) button.name else source, pointers.size)
             if (now != pressed) {
                 pressed = now
-                input.setButton(button, now, t)
+                input.setButtonFrom(source, button, now, t)
                 if (now) haptic()
             }
         },
@@ -246,7 +247,7 @@ fun FaceButtons(input: ControllerInputManager, resetKey: Int, modifier: Modifier
             val on = (pressedMask and (1 shl i)) != 0
             drawCircle(skin.keyEdge, radius = r * 1.06f, center = c)
             val fill = when {
-                skin.faceFilled -> if (on) lerp(colors[i], Color.Black, 0.35f) else colors[i]
+                skin.faceFilled -> if (on) skin.keyPressed else colors[i]
                 on -> colors[i].copy(alpha = 0.35f)
                 else -> skin.key
             }
@@ -254,7 +255,7 @@ fun FaceButtons(input: ControllerInputManager, resetKey: Int, modifier: Modifier
             if (skin.glow) drawCircle(colors[i].copy(alpha = if (on) 1f else 0.8f), radius = r * 1.02f, center = c, style = Stroke(r * 0.1f))
             if (!style.showLabels && !on) continue
             val markColor = when {
-                skin.faceFilled -> Color.White
+                skin.faceFilled -> if (on) skin.labelPressed else skin.label
                 on -> skin.labelPressed
                 else -> colors[i]
             }
@@ -362,8 +363,7 @@ fun AnalogStick(
         val travel = s * STICK_TRAVEL
         val c = origin ?: if (settings.floating) center else fixedCentre(travel)
         drawCircle(Color.White.copy(alpha = 0.03f), radius = s / 2)
-        drawCircle(skin.keyEdge, radius = travel + s * 0.06f, center = c)
-        drawCircle(skin.stickBase, radius = travel + s * 0.045f, center = c)
+        drawCircle(skin.stickBase, radius = travel + s * 0.06f, center = c)
         if (skin.glow) drawCircle(skin.accent.copy(alpha = 0.7f), radius = travel + s * 0.05f, center = c, style = Stroke(s * 0.012f))
         drawCircle(Color.White.copy(alpha = 0.06f), radius = travel * settings.deadZone, center = c, style = Stroke(s * 0.006f))
         val k = c + knob

@@ -17,7 +17,7 @@ import kotlin.math.hypot
  *  2. Convert to screen axes (display rotation) and split relative to the CURRENT gravity direction
  *     (sensor fusion), which makes it work however the phone is held:
  *       horizontal = turning left/right about the vertical axis + rolling left/right
- *       vertical   = tilting the top edge away (up) / towards you (down)
+ *       vertical   = tilting the top edge towards you (up) / away (down), like aiming a camera
  *  3. Dead zone on rotation speed (rescaled, no jump), smoothing, sensitivity X/Y, inversion.
  *  4. Integrate over the sample interval -> mouse counts; per-sample rate limit against spikes.
  */
@@ -75,7 +75,7 @@ class GyroMouseEngine(private val calibrationNs: Long = 1_500_000_000L) {
         val e2 = (up cross e1).normalized()
         val deg = (180.0 / Math.PI).toFloat()
         var h = -((w dot up) + (w dot e2)) * deg     // °/s, + = right
-        var v = -(w dot e1) * deg                    // °/s, + = down (top edge towards you)
+        var v = (w dot e1) * deg                     // °/s, + = down (top edge away); 1.7.0: was reversed
 
         // radial dead zone on rotation speed, rescaled so there is no jump at its edge
         val mag = hypot(h, v)

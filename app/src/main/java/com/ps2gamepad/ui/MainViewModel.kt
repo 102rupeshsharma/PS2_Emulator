@@ -586,6 +586,10 @@ class MainViewModel(
     fun savePlacements(placements: Map<ControlId, Placement>) =
         settings.update { s -> ProfileManager.updateActive(s) { it.copy(placements = placements) } }
 
+    /** Layout editor "Save": positions/sizes of the built-in controls plus the user's extra buttons. */
+    fun saveLayout(placements: Map<ControlId, Placement>, extras: List<com.ps2gamepad.model.ExtraButton>) =
+        settings.update { s -> ProfileManager.updateActive(s) { it.copy(placements = placements, extraButtons = extras) } }
+
     fun resetLayout() {
         settings.update { s -> ProfileManager.updateActive(s) { it.copy(placements = emptyMap()) } }
         log.add("Layout reset to default positions")

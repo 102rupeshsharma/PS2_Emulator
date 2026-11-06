@@ -1,5 +1,19 @@
 # Release notes
 
+## 1.6.0 (versionCode 10), 2026-11-06: one simple controller + in-controller settings
+
+- **Single controller look:** the 5 styles (PS2 Classic, PS5, Xbox, Retro, Neon) and the Styles screen
+  are removed. The controller always uses the simple PS2 button look (△ ○ ✕ □, L1/L2/R1/R2,
+  START/SELECT). Saved settings from older versions still load (the old style value is ignored).
+- **Settings button inside the controller:**
+  - Gyro aiming on/off: ON turns the right joystick into the gyro automatically, with Recenter.
+  - Opacity of all controls, size of all buttons, joystick size, and Reset.
+  - Changes apply live and are saved to the loadout in use.
+  - The panel blocks touches, so nothing behind it is pressed. It scrolls on short screens.
+- Everything else is unchanged: loadouts, layout editor, per-control opacity in Customize, PC Mode,
+  Bluetooth.
+- Tests: 298 (296 passed, 2 skipped).
+
 ## 1.5.0 (versionCode 9), 2026-11-06: PC Gaming Mode
 
 - **Mode selection** on Open Controller: Emulator Gaming (unchanged) or PC Gaming. The choice is remembered.

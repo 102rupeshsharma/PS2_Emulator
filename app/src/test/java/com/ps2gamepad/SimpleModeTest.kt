@@ -217,18 +217,9 @@ class SimpleHomeUiTest {
         rule.onNodeWithText("Logs (testing)").assertDoesNotExist()
     }
 
-    @Test fun stylesTileOpensStylesAndPickingAStyleAppliesIt() {
-        rule.onNodeWithTag("homeStyles").performClick()
-        rule.onNodeWithText("Controller styles").assertIsDisplayed()
-        rule.onNodeWithTag("style_XBOX_STYLE").performClick()
-        rule.waitForIdle()
-        rule.runOnIdle { assertEquals(com.ps2gamepad.model.ControllerSkin.XBOX_STYLE, vm.activeProfile.value.appearance.skin) }
-        rule.onNodeWithText("IN USE").assertIsDisplayed()
-    }
-
-    @Test fun previewCardShowsCurrentStyle() {
+    @Test fun noStylesTileAnyMore() {
+        rule.onNodeWithTag("homeStyles").assertDoesNotExist()
         rule.onNodeWithTag("homePreview").assertIsDisplayed()
-        rule.onNodeWithText("PS2 Classic").assertIsDisplayed()
     }
 
     @Test fun moreOpensTheFullMenu() {

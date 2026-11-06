@@ -92,7 +92,6 @@ fun DashboardScreen(vm: MainViewModel, actions: AppActions) {
             BigButton("Profiles", "dash_profiles", outlined = true) { vm.navigate(Screen.PROFILES) }
             BigButton("Input test / diagnostics", "dash_diagnostics", outlined = true) { vm.navigate(Screen.DIAGNOSTICS) }
             BigButton("Analog calibration", "dash_calibration", outlined = true) { vm.navigate(Screen.CALIBRATION) }
-            BigButton("Controller styles", "dash_styles", outlined = true) { vm.navigate(Screen.STYLES) }
             BigButton("Gyro right stick", "dash_gyro", outlined = true) { vm.navigate(Screen.GYRO) }
             BigButton("Restore my phone's original Bluetooth name", "dash_restoreName", outlined = true) { vm.restorePhoneName() }
         }

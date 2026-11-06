@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Slider
@@ -78,6 +79,7 @@ fun ControllerScreen(vm: MainViewModel) {
     val hid by vm.hidState.collectAsStateWithLifecycle()
     val status = overallStatus(bt, perm, hid)
     var showOverlay by remember { mutableStateOf(false) }
+    var showSettings by remember { mutableStateOf(false) }
 
     // Back: press twice within 2 s to leave, so a stray edge swipe cannot end a game session.
     var lastBack by remember { mutableLongStateOf(0L) }
@@ -90,7 +92,7 @@ fun ControllerScreen(vm: MainViewModel) {
     LaunchedEffect(backHint) { if (backHint) { delay(2000); backHint = false } }
 
     BoxWithConstraints(
-        Modifier.fillMaxSize().background(Skins.of(profile.appearance.skin).screen).windowInsetsPadding(WindowInsets.displayCutout).testTag("controller")
+        Modifier.fillMaxSize().background(Skins.PS2.screen).windowInsetsPadding(WindowInsets.displayCutout).testTag("controller")
     ) {
         val w = maxWidth.value
         val h = maxHeight.value
@@ -110,6 +112,7 @@ fun ControllerScreen(vm: MainViewModel) {
             ConnectionChip(status, Modifier.testTag("connectionChip"))
             SmallChipButton(if (showOverlay) "Hide" else "Live") { showOverlay = !showOverlay }
             SmallChipButton("Edit") { vm.setEditMode(true) }
+            SmallChipButton("Settings") { vm.input.releaseAll(); showSettings = true }
             if (gyroActive) SmallChipButton("Recenter") { vm.gyroRecenter() }
         }
         if (!hid.isConnected) {
@@ -127,6 +130,7 @@ fun ControllerScreen(vm: MainViewModel) {
             )
         }
         if (showOverlay) LiveOverlay(vm, Modifier.align(Alignment.Center).width(260.dp))
+        if (showSettings) ControllerSettingsPanel(vm, profile, Modifier.align(Alignment.Center)) { showSettings = false }
     }
 }
 
@@ -146,7 +150,7 @@ fun ControllerLayout(
     onGyroRecenter: () -> Unit = {},
 ) {
     val a = profile.appearance
-    val skin = Skins.of(a.skin)
+    val skin = Skins.PS2
     ControllerBackgroundArt(a.background, skin, Modifier.fillMaxSize().alpha(a.controllerOpacity))
     val style = ControlStyle(showLabels = a.showLabels, haptics = a.haptics && interactive, faceSpacing = a.buttonSpacing, interactive = interactive)
     CompositionLocalProvider(LocalControlStyle provides style, LocalSkin provides skin) {
@@ -364,4 +368,60 @@ private fun GyroStickIndicator(input: ControllerInputManager, onRecenter: () -> 
         }
         Text("GYRO · tap to recenter", color = skin.label, fontSize = 9.sp, fontWeight = FontWeight.Bold)
     }
+}
+
+/**
+ * Quick settings inside the controller: opacity and size of all controls, and the gyro switch.
+ * With the gyro ON the right joystick becomes the gyro automatically. Changes apply live and are
+ * saved to the loadout in use. The panel takes all touches, so nothing behind it is pressed.
+ */
+@Composable
+private fun ControllerSettingsPanel(vm: MainViewModel, profile: ControllerProfile, modifier: Modifier, onClose: () -> Unit) {
+    val a = profile.appearance
+    val gyroSending by vm.gyroSending.collectAsStateWithLifecycle()
+    Column(
+        modifier.width(380.dp).padding(vertical = 40.dp)
+            .background(Color(0xF2121621), RoundedCornerShape(18.dp))
+            .border(1.dp, Color(0x55FFFFFF), RoundedCornerShape(18.dp))
+            .pointerInput(Unit) { awaitPointerEventScope { while (true) awaitPointerEvent().changes.forEach { it.consume() } } }
+            .verticalScroll(androidx.compose.foundation.rememberScrollState()) // short screens: nothing is cut off
+            .padding(16.dp)
+            .testTag("controllerSettings"),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("Controller settings", color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+            SmallChipButton("Close") { onClose() }
+        }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text("Gyro aiming", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                Text("ON: the right joystick becomes the gyro (tilt the phone to look around)", color = Palette.TextDim, fontSize = 11.sp)
+            }
+            androidx.compose.material3.Switch(
+                checked = profile.gyro.enabled,
+                onCheckedChange = { on -> vm.updateGyro { it.copy(enabled = on) } },
+                modifier = Modifier.testTag("set_gyro"),
+            )
+        }
+        if (profile.gyro.enabled) {
+            Text(
+                if (gyroSending) "Hold the phone the way you play, then tap Recenter." else "Starting gyro…",
+                color = Palette.TextDim, fontSize = 11.sp,
+            )
+            SmallChipButton("Recenter gyro") { vm.gyroRecenter() }
+        }
+        SettingSlider("Opacity (all controls)", a.buttonOpacity, 0.2f..1f, "set_opacity") { v -> vm.updateAppearance { it.copy(buttonOpacity = v) } }
+        SettingSlider("Button size (all buttons)", a.buttonScale, 0.6f..1.6f, "set_buttonSize") { v -> vm.updateAppearance { it.copy(buttonScale = v) } }
+        SettingSlider("Joystick size", a.stickScale, 0.6f..1.6f, "set_stickSize") { v -> vm.updateAppearance { it.copy(stickScale = v) } }
+        SmallChipButton("Reset size & opacity") {
+            vm.updateAppearance { it.copy(buttonOpacity = 1f, buttonScale = 1f, stickScale = 1f) }
+        }
+    }
+}
+
+@Composable
+private fun SettingSlider(label: String, value: Float, range: ClosedFloatingPointRange<Float>, tag: String, onChange: (Float) -> Unit) {
+    Text("$label: ${(value * 100).toInt()} %", color = Color.White, fontSize = 13.sp)
+    Slider(value = value.coerceIn(range), onValueChange = onChange, valueRange = range, modifier = Modifier.testTag(tag))
 }

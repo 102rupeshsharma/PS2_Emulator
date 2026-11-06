@@ -2,7 +2,7 @@
 
 ## 📥 Download
 
-### **[⬇️ Download the APK (v1.5.0, 2.7 MB)](download/PS2BluetoothGamepad.apk?raw=true)**
+### **[⬇️ Download the APK (v1.6.0, 2.7 MB)](download/PS2BluetoothGamepad.apk?raw=true)**
 
 **Install on your phone:**
 1. Open this page on your Android phone and tap the download link above.
@@ -22,22 +22,15 @@ Requires Android 9 or newer with Bluetooth.
 
 ### Screens
 
-| Home | Controller styles |
+| Home | Settings inside the controller |
 |---|---|
-| ![Home](docs/screenshots/02_home_connected.png) | ![Styles](docs/screenshots/03_styles.png) |
-| **PS5 Style** | **Xbox Style** |
-| ![PS5 style](docs/screenshots/04_style_ps5_style.png) | ![Xbox style](docs/screenshots/04_style_xbox_style.png) |
-
+| ![Home](docs/screenshots/02_home_connected.png) | ![Controller settings](docs/screenshots/08_controller_settings.png) |
 | **Mode selection** | **PC Gaming controller** |
 | ![Modes](docs/screenshots/20_mode_select.png) | ![PC controller](docs/screenshots/21_pc_controller.png) |
-| **Loadouts (one per game)** | |
-| ![Loadouts](docs/screenshots/07_loadouts.png) | |
-| **Gyro right stick (test screen)** | **Controller with gyro** |
-| ![Gyro](docs/screenshots/05_gyro_screen.png) | ![Controller gyro](docs/screenshots/06_controller_gyro.png) |
+| **Loadouts (one per game)** | **Controller with gyro** |
+| ![Loadouts](docs/screenshots/07_loadouts.png) | ![Controller gyro](docs/screenshots/06_controller_gyro.png) |
 
-5 styles: **PS2 Classic, PS5 Style, Xbox Style, Retro, Neon**. Only the look changes: every
-button position always sends the same signal, so emulator settings keep working when you switch.
-SHA-256: `e564113a2dded48b3851034c01bfa899910468ebd77233c189b65a6305b2c78a`
+SHA-256: `a398c78caef7e35d20608b27d80fd8367ed7a86fe02c4d816b0e300671039448`
 
 ---
 
@@ -72,13 +65,14 @@ end-to-end latency are therefore all *unverified*. See [TEST_REPORT.md](TEST_REP
   mouse with a W/A/S/D stick, gyro mouse aiming, mouse buttons, wheel, custom buttons (key combos too)
   and PC game profiles. See [PC_MODE.md](PC_MODE.md). Windows test pending.
 - **Loadouts (up to 5):** one saved setup per game. Each keeps its own button layout, sizes,
-  opacity, style, sticks and gyro. Open Controller asks which loadout to play; create one, arrange the
+  opacity, sticks and gyro. Open Controller asks which loadout to play; create one, arrange the
   buttons, Save, and next time just pick it.
 - **Gyro right stick (360°):** tilt the phone to move the right stick like a real analog stick:
   any direction, any intermediate angle, held tilt = held stick, back to neutral = centre.
   Gyroscope + accelerometer fusion (no drift), Recenter / Calibrate, sensitivity, max tilt angle,
   dead zone, smoothing, invert X/Y, and a live test screen showing exactly what is sent.
-- **5 controller styles** (PS2 Classic, PS5 Style, Xbox Style, Retro, Neon) with live previews.
+- **Settings inside the controller** (Settings button): gyro on/off (on = the right joystick
+  becomes the gyro), opacity of all controls, size of all buttons, joystick size.
 - **Customization:** button size, stick size, opacity of all controls **and of each control**, controller opacity,
   face-button spacing, 4 backgrounds, labels, haptics.
 - **Layout editor:** drag, resize and reset controls; overlapping drops are refused; layouts adapt to any screen size.

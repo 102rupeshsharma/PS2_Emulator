@@ -36,7 +36,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
-enum class Screen { HOME, MODE_SELECT, PC_CONTROLLER, PC_PROFILES, LOADOUTS, STYLES, GYRO, DASHBOARD, CONNECTION, CONTROLLER, DIAGNOSTICS, CUSTOMIZE, PROFILES, CALIBRATION }
+enum class Screen { HOME, MODE_SELECT, PC_CONTROLLER, PC_PROFILES, LOADOUTS, GYRO, DASHBOARD, CONNECTION, CONTROLLER, DIAGNOSTICS, CUSTOMIZE, PROFILES, CALIBRATION }
 
 /** A controller session, for measured (not estimated) battery and duration figures. */
 data class Session(val startUptimeMs: Long, val startBattery: Int?)

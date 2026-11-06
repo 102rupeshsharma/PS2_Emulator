@@ -33,7 +33,6 @@ import com.ps2gamepad.model.Stick
 import com.ps2gamepad.model.StickSettings
 import com.ps2gamepad.model.Appearance
 import com.ps2gamepad.model.ControlId
-import com.ps2gamepad.model.ControllerSkin
 import com.ps2gamepad.ui.controller.ControllerPreview
 
 /**
@@ -72,15 +71,6 @@ fun CustomizeScreen(vm: MainViewModel) {
             }
 
             Column(Modifier.weight(1.1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Card {
-                    Text("Style", color = Palette.TextDim, fontSize = 12.sp)
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        ControllerSkin.entries.forEach { sk ->
-                            FilterChip(selected = a.skin == sk, onClick = { vm.updateAppearance { it.copy(skin = sk) } },
-                                label = { Text(sk.label, fontSize = 11.sp) }, modifier = Modifier.testTag("skin_${sk.name}"))
-                        }
-                    }
-                }
                 Card {
                     Text("Appearance", color = Palette.TextDim, fontSize = 12.sp)
                     LabeledSlider("Button size", a.buttonScale, 0.6f..1.6f, ::pct, "s_buttonScale") { v -> vm.updateAppearance { it.copy(buttonScale = v) } }

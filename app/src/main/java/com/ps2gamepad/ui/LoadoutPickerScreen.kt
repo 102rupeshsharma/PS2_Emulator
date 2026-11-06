@@ -103,7 +103,7 @@ private fun LoadoutCard(vm: MainViewModel, p: ControllerProfile, title: String, 
             .testTag("loadout_${p.id}"),
         verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        ControllerPreview(vm.input, p, Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)))
+        ControllerPreview(vm.input, p, Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)), dark = vm.profiles.collectAsStateWithLifecycle().value.darkControls)
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Text(title, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 15.sp, maxLines = 1)

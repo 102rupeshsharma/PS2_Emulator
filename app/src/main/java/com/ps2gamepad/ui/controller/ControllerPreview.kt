@@ -15,7 +15,7 @@ import com.ps2gamepad.model.ControllerProfile
  * home screen, the style picker and the customise preview. It can never send input.
  */
 @Composable
-fun ControllerPreview(input: ControllerInputManager, profile: ControllerProfile, modifier: Modifier = Modifier, aspect: Float = 2.2f) {
+fun ControllerPreview(input: ControllerInputManager, profile: ControllerProfile, modifier: Modifier = Modifier, aspect: Float = 2.2f, dark: Boolean = false) {
     BoxWithConstraints(modifier.aspectRatio(aspect).clipToBounds()) {
         val refW = 900f
         val refH = refW / aspect
@@ -24,6 +24,8 @@ fun ControllerPreview(input: ControllerInputManager, profile: ControllerProfile,
             LayoutEngine.resolve(refW, refH, profile.appearance, profile.placements)
                 .mapValues { (_, r) -> r.copy(cx = r.cx * k, cy = r.cy * k, w = r.w * k, h = r.h * k) }
         }
-        ControllerLayout(input, 0, profile, rects, interactive = false)
+        androidx.compose.runtime.CompositionLocalProvider(LocalNeu provides NeuThemes.of(dark)) {
+            ControllerLayout(input, 0, profile, rects, interactive = false)
+        }
     }
 }

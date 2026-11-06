@@ -44,6 +44,7 @@ import com.ps2gamepad.ui.controller.ControllerPreview
 @Composable
 fun CustomizeScreen(vm: MainViewModel) {
     val profile by vm.activeProfile.collectAsStateWithLifecycle()
+    val dark = vm.profiles.collectAsStateWithLifecycle().value.darkControls
     val a = profile.appearance
     var stickTab by remember { mutableStateOf(Stick.LEFT) }
     var opacityTarget by remember { mutableStateOf(ControlId.FACE) }
@@ -53,7 +54,7 @@ fun CustomizeScreen(vm: MainViewModel) {
             Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("Preview (same layout as the controller, not interactive)", color = Palette.TextDim, fontSize = 11.sp)
                 ControllerPreview(
-                    vm.input, profile,
+                    vm.input, profile, dark = dark, modifier =
                     Modifier.fillMaxWidth().border(1.dp, Palette.SurfaceHigh, RoundedCornerShape(8.dp)).testTag("preview"),
                 )
                 val overlaps = remember(a, profile.placements) { LayoutEngine.overlaps(LayoutEngine.resolve(900f, 900f / 2.2f, a, profile.placements)) }
@@ -76,15 +77,7 @@ fun CustomizeScreen(vm: MainViewModel) {
                     LabeledSlider("Button size", a.buttonScale, 0.6f..1.6f, ::pct, "s_buttonScale") { v -> vm.updateAppearance { it.copy(buttonScale = v) } }
                     LabeledSlider("Stick size", a.stickScale, 0.6f..1.6f, ::pct, "s_stickScale") { v -> vm.updateAppearance { it.copy(stickScale = v) } }
                     LabeledSlider("Opacity, all controls", a.buttonOpacity, 0.2f..1f, ::pct, "s_buttonOpacity") { v -> vm.updateAppearance { it.copy(buttonOpacity = v) } }
-                    LabeledSlider("Controller opacity", a.controllerOpacity, 0f..1f, ::pct, "s_controllerOpacity") { v -> vm.updateAppearance { it.copy(controllerOpacity = v) } }
                     LabeledSlider("Face button spacing", a.buttonSpacing, 0.8f..1.3f, ::pct, "s_spacing") { v -> vm.updateAppearance { it.copy(buttonSpacing = v) } }
-                    Text("Background", color = Palette.Text, fontSize = 12.sp)
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        ControllerBackground.entries.forEach { bg ->
-                            FilterChip(selected = a.background == bg, onClick = { vm.updateAppearance { it.copy(background = bg) } },
-                                label = { Text(bg.label, fontSize = 11.sp) }, modifier = Modifier.testTag("bg_${bg.name}"))
-                        }
-                    }
                     LabeledSwitch("Show button labels", a.showLabels, "sw_labels") { v -> vm.updateAppearance { it.copy(showLabels = v) } }
                     LabeledSwitch("Haptic feedback on press", a.haptics, "sw_haptics") { v -> vm.updateAppearance { it.copy(haptics = v) } }
                 }

@@ -208,6 +208,8 @@ data class ProfileStore(
     val pcInputEnabled: Boolean = false,
     /** Last mode chosen on the mode selection screen. */
     val lastMode: GamingMode? = null,
+    /** Controller theme for both controllers: false = light soft UI (default), true = black. */
+    val darkControls: Boolean = false,
 ) {
     val active: ControllerProfile get() = profiles.firstOrNull { it.id == activeId } ?: profiles.first()
 }

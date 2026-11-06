@@ -89,15 +89,15 @@ fun StatusRow(title: String, value: String, severity: Severity) {
 
 /** Compact pill for the controller screen. */
 @Composable
-fun ConnectionChip(status: OverallStatus, modifier: Modifier = Modifier) {
+fun ConnectionChip(status: OverallStatus, modifier: Modifier = Modifier, bg: Color = Color(0xCC000000), fg: Color = Palette.Text) {
     Row(
         modifier = modifier
-            .background(Color(0xCC000000), RoundedCornerShape(50))
+            .background(bg, RoundedCornerShape(50))
             .padding(horizontal = 10.dp, vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         StatusDot(status.severity, 8)
-        Text(status.text, color = Palette.Text, fontSize = 11.sp, maxLines = 1)
+        Text(status.text, color = fg, fontSize = 11.sp, maxLines = 1)
     }
 }

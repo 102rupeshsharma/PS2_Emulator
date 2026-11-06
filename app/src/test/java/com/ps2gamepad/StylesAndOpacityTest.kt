@@ -116,6 +116,29 @@ class ControllerSettingsUiTest {
         rule.runOnIdle { assertFalse(motion.running) }
     }
 
+    @Test fun blackThemeSwitchIsSavedAndSharedWithPcMode() {
+        rule.runOnIdle { assertFalse(vm.profiles.value.darkControls) }
+        rule.onNodeWithTag("chip_Settings").performClick()
+        rule.onNodeWithTag("set_dark").performScrollTo().performClick()
+        rule.waitForIdle()
+        rule.runOnIdle { assertTrue(vm.profiles.value.darkControls) }
+        val back = ProfileCodec.decode(ProfileCodec.encode(vm.profiles.value))
+        assertTrue("stored", back.darkControls)
+        // the controls keep working in the black theme
+        rule.onNodeWithTag("chip_Close").performClick()
+        val root = rule.onNodeWithTag("controller")
+        val r = root.fetchSemanticsNode().boundsInRoot
+        val l1 = rule.onNodeWithTag("btn_L1", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+        root.performTouchInput { down(0, Offset(l1.center.x - r.left, l1.center.y - r.top)) }
+        rule.waitForIdle()
+        assertEquals(ControllerButton.L1.mask, HidReportManager.decode(hid.sent.last()).buttons)
+        root.performTouchInput { up(0) }
+        // and back to light
+        rule.runOnIdle { vm.setDarkControls(false) }
+        rule.waitForIdle()
+        rule.runOnIdle { assertFalse(vm.profiles.value.darkControls) }
+    }
+
     @Test fun touchesOnThePanelNeverPressControlsBehindIt() {
         rule.onNodeWithTag("chip_Settings").performClick()
         val before = hid.sent.size

@@ -70,15 +70,18 @@ import com.ps2gamepad.ui.Screen
 import com.ps2gamepad.ui.Severity
 import com.ps2gamepad.ui.overallStatus
 import com.ps2gamepad.ui.controller.trackPointers
+import com.ps2gamepad.ui.controller.LocalNeu
+import com.ps2gamepad.ui.controller.NeuThemes
+import com.ps2gamepad.ui.controller.drawNeuStick
+import com.ps2gamepad.ui.controller.neuBackground
+import androidx.compose.runtime.CompositionLocalProvider
 import kotlin.math.hypot
 import kotlin.math.min
 
-private val PcBg = Color(0xFF0A0D14)
-// Plain sky-blue buttons, same colour as the emulator controller (1.7.0)
-private val PcKey = com.ps2gamepad.ui.controller.Sky.Key
-private val PcKeyPressed = com.ps2gamepad.ui.controller.Sky.Pressed
-private val PcEdge = com.ps2gamepad.ui.controller.Sky.Key
+// Soft-UI look shared with the emulator controller (1.8.0): colours come from LocalNeu.
 private val PcAccent = Color(0xFF06B6D4)
+private val PcPanelEdge = Color(0xFF34405C)
+private val PcKeyChip = Color(0xFF1B2232)
 
 /** Layout geometry shared by play and edit mode: control size in dp for a screen of [w] x [h]. */
 internal object PcGeometry {
@@ -101,12 +104,14 @@ fun PcControllerScreen(vm: MainViewModel) {
     val gyroPaused by vm.pcGyroPaused.collectAsStateWithLifecycle()
     val gyroRunning by vm.pcGyroRunning.collectAsStateWithLifecycle()
     val profile = store.pc.active
+    val neu = NeuThemes.of(store.darkControls)
     var selected by remember { mutableStateOf<String?>(null) }
     var confirmRestore by remember { mutableStateOf(false) }
 
     BackHandler { if (editing) vm.setPcEditMode(false) else vm.navigate(Screen.MODE_SELECT) }
 
-    BoxWithConstraints(Modifier.fillMaxSize().background(PcBg).windowInsetsPadding(WindowInsets.displayCutout).testTag("pcController")) {
+    CompositionLocalProvider(LocalNeu provides neu) {
+    BoxWithConstraints(Modifier.fillMaxSize().background(neu.bg).windowInsetsPadding(WindowInsets.displayCutout).testTag("pcController")) {
         val w = maxWidth.value
         val h = maxHeight.value
         val u = PcGeometry.unit(w, h)
@@ -181,6 +186,7 @@ fun PcControllerScreen(vm: MainViewModel) {
             }
         }
     }
+    }
     if (confirmRestore) {
         AlertDialog(
             onDismissRequest = { confirmRestore = false },
@@ -194,9 +200,10 @@ fun PcControllerScreen(vm: MainViewModel) {
 
 @Composable
 private fun Chip(text: String, tag: String, enabled: Boolean = true, highlight: Boolean = false, onClick: () -> Unit) {
+    val neu = LocalNeu.current
     Text(
-        text, color = if (enabled) Color.White else Color.Gray, fontSize = 11.sp, maxLines = 1,
-        modifier = Modifier.background(if (highlight) PcAccent.copy(alpha = 0.85f) else Color(0xCC000000), RoundedCornerShape(50))
+        text, color = when { highlight -> Color.White; enabled -> neu.text; else -> neu.textDim }, fontSize = 11.sp, maxLines = 1,
+        modifier = Modifier.background(if (highlight) PcAccent.copy(alpha = 0.85f) else neu.chip, RoundedCornerShape(50))
             .then(if (enabled) Modifier.clickable(onClick = onClick) else Modifier)
             .padding(horizontal = 9.dp, vertical = 5.dp).testTag(tag),
     )
@@ -204,12 +211,13 @@ private fun Chip(text: String, tag: String, enabled: Boolean = true, highlight: 
 
 @Composable
 private fun StatusChip(text: String, severity: Severity) {
+    val neu = LocalNeu.current
     Row(
-        Modifier.background(Color(0xCC000000), RoundedCornerShape(50)).padding(horizontal = 10.dp, vertical = 5.dp).testTag("pc_status"),
+        Modifier.background(neu.chip, RoundedCornerShape(50)).padding(horizontal = 10.dp, vertical = 5.dp).testTag("pc_status"),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         Box(Modifier.size(8.dp).background(severity.color, CircleShape))
-        Text(text, color = Color.White, fontSize = 11.sp, maxLines = 1)
+        Text(text, color = neu.text, fontSize = 11.sp, maxLines = 1)
     }
 }
 
@@ -217,6 +225,7 @@ private fun StatusChip(text: String, severity: Severity) {
 @Composable
 private fun PcButton(vm: MainViewModel, c: PcControl, epoch: Int, modifier: Modifier) {
     var pressed by remember(epoch) { mutableStateOf(false) }
+    val neu = LocalNeu.current
     Box(
         modifier.trackPointers(epoch) { pointers, t ->
             val now = pointers.isNotEmpty()
@@ -224,13 +233,13 @@ private fun PcButton(vm: MainViewModel, c: PcControl, epoch: Int, modifier: Modi
                 pressed = now
                 if (now) vm.pcPress(c, t) else vm.pcRelease(c, t)
             }
-        }.background(if (pressed) PcKeyPressed else PcKey, RoundedCornerShape(30))
+        }.neuBackground(neu, pressed)
             .testTag("pc_${c.id}"),
         contentAlignment = Alignment.Center,
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(c.label, color = if (pressed) Color.White else com.ps2gamepad.ui.controller.Sky.Label, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1)
-            Text(c.action.label, color = if (pressed) Color(0xFFE0F2FE) else com.ps2gamepad.ui.controller.Sky.SubLabel, fontSize = 9.sp, maxLines = 1)
+            Text(c.label, color = neu.label, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+            Text(c.action.label, color = neu.labelDim, fontSize = 9.sp, maxLines = 1)
         }
     }
 }
@@ -245,11 +254,14 @@ private fun PcStick(c: PcControl, epoch: Int, modifier: Modifier, mouse: Boolean
     var knob by remember(epoch) { mutableStateOf(Offset.Zero) }
     var keys by remember(epoch) { mutableStateOf(emptySet<Int>()) }
     val threshold = vm.pcStore.active.mouse.moveKeyThreshold
+    val neu = LocalNeu.current
+    var held by remember(epoch) { mutableStateOf(false) }
     Box(modifier.testTag("pc_${c.id}"), contentAlignment = Alignment.BottomCenter) {
         Canvas(
             Modifier.fillMaxSize().onSizeChanged { area = it }.trackPointers(epoch) { pointers, t ->
                 val travel = min(area.width, area.height) * 0.30f
                 val p = pointers.firstOrNull()
+                held = p != null
                 if (p == null) {
                     knob = Offset.Zero
                     if (mouse) vm.pcMouseStick(0f, 0f) else if (keys.isNotEmpty()) { keys = emptySet(); vm.pcMoveKeys(c, keys, t) }
@@ -271,13 +283,11 @@ private fun PcStick(c: PcControl, epoch: Int, modifier: Modifier, mouse: Boolean
         ) {
             val s = size.minDimension
             val travel = s * 0.30f
-            drawCircle(PcKey.copy(alpha = 0.25f), radius = s * 0.48f)
-            drawCircle(PcKey.copy(alpha = 0.35f), radius = travel, style = Stroke(s * 0.008f))
-            drawCircle(PcKey, radius = s * 0.16f, center = center + knob)
+            drawNeuStick(neu, center, travel, s, knob, held)
         }
         Text(
             if (mouse) "${c.label} · mouse" else "${c.label} · ${KeyCodes.name(c.up)}${KeyCodes.name(c.left)}${KeyCodes.name(c.down)}${KeyCodes.name(c.right)}",
-            color = Color(0xFF9FB3D9), fontSize = 9.sp,
+            color = neu.labelDim, fontSize = 9.sp,
         )
     }
 }
@@ -289,9 +299,10 @@ private fun EditableControl(
     onSelect: () -> Unit, onMoved: (Float, Float) -> Unit,
 ) {
     var drag by remember(c.id, c.cx, c.cy) { mutableStateOf(Offset.Zero) }
+    val neu = LocalNeu.current
     Box(
         modifier.offset { androidx.compose.ui.unit.IntOffset(drag.x.toInt(), drag.y.toInt()) } // moves in layout phase, no recomposition
-            .background(PcKey, if (c.kind == PcControlKind.BUTTON) RoundedCornerShape(30) else CircleShape)
+            .neuBackground(neu, pressed = false, cornerFraction = if (c.kind == PcControlKind.BUTTON) 0.3f else 0.5f)
             .border(if (selected) 3.dp else 1.dp, if (selected) PcAccent else Color.White.copy(alpha = 0.5f), if (c.kind == PcControlKind.BUTTON) RoundedCornerShape(30) else CircleShape)
             .pointerInput(c.id) { detectTapGestures { onSelect() } }
             .pointerInput(c.id, c.cx, c.cy) {
@@ -309,7 +320,7 @@ private fun EditableControl(
             }
             .testTag("pcedit_${c.id}"),
         contentAlignment = Alignment.Center,
-    ) { Text(c.label, color = com.ps2gamepad.ui.controller.Sky.Label, fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1) }
+    ) { Text(c.label, color = neu.label, fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1) }
 }
 
 /** Side panel to edit the selected control. Every change is saved immediately to the active profile. */
@@ -320,7 +331,7 @@ private fun ControlEditor(vm: MainViewModel, c: PcControl, modifier: Modifier, o
     var name by remember(c.id) { mutableStateOf(c.label) }
     var stickDir by remember(c.id) { androidx.compose.runtime.mutableIntStateOf(0) } // 0 up, 1 down, 2 left, 3 right
     Column(
-        modifier.background(Color(0xF0111827), RoundedCornerShape(16.dp)).border(1.dp, PcEdge, RoundedCornerShape(16.dp))
+        modifier.background(Color(0xF0111827), RoundedCornerShape(16.dp)).border(1.dp, PcPanelEdge, RoundedCornerShape(16.dp))
             .padding(12.dp).verticalScroll(rememberScrollState()).testTag("pc_editor"),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
@@ -390,7 +401,7 @@ private fun KeyGrid(selected: Int, onPick: (Int) -> Unit) {
         for (k in KeyCodes.ALL) {
             Text(
                 k.name, color = if (k.usage == selected) Color.Black else Color.White, fontSize = 11.sp,
-                modifier = Modifier.background(if (k.usage == selected) PcAccent else PcKey, RoundedCornerShape(6.dp))
+                modifier = Modifier.background(if (k.usage == selected) PcAccent else PcKeyChip, RoundedCornerShape(6.dp))
                     .clickable { onPick(k.usage) }.padding(horizontal = 7.dp, vertical = 5.dp).testTag("pc_key_${k.name}"),
             )
         }

@@ -94,7 +94,9 @@ class ScreenshotCapture {
             vm.saveLayout(emptyMap(), listOf(com.ps2gamepad.model.ExtraButton("x1", com.ps2gamepad.model.ControllerButton.CROSS, 0.62f, 0.2f)))
         }
         shoot("19_controller_added_button")
-        rule.runOnIdle { vm.saveLayout(emptyMap(), emptyList()) }
+        rule.runOnIdle { vm.saveLayout(emptyMap(), emptyList()); vm.setDarkControls(true) }
+        shoot("19b_controller_black_theme")
+        rule.runOnIdle { vm.setDarkControls(false) }
         rule.runOnIdle {
             vm.setEditMode(false)
             vm.updateAppearance { it.copy(buttonScale = 1.15f, buttonOpacity = 0.7f, background = ControllerBackground.BLUE, showLabels = false) }
@@ -115,6 +117,9 @@ class ScreenshotCapture {
         shoot("20_mode_select")
         rule.runOnIdle { vm.setPcInputEnabled(true); vm.chooseMode(com.ps2gamepad.model.GamingMode.PC) }
         shoot("21_pc_controller")
+        rule.runOnIdle { vm.setDarkControls(true) }
+        shoot("21b_pc_controller_black")
+        rule.runOnIdle { vm.setDarkControls(false) }
         rule.runOnIdle { vm.setPcEditMode(true) }
         shoot("22_pc_edit")
         rule.runOnIdle { vm.setPcEditMode(false); vm.navigate(Screen.PC_PROFILES) }

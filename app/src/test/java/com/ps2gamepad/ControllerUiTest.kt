@@ -291,14 +291,12 @@ class ControllerUiTest {
         rule.waitForIdle()
         rule.onNodeWithTag("s_buttonOpacity").performScrollTo().performSemanticsAction(SemanticsActions.SetProgress) { it(0.5f) }
         rule.onNodeWithTag("sw_labels").performScrollTo().performClick()
-        rule.onNodeWithTag("bg_BLACK").performScrollTo().performClick()
         rule.onNodeWithTag("tab_RIGHT").performScrollTo().performClick()
         rule.onNodeWithTag("sw_invert").performScrollTo().performClick()
         rule.waitForIdle()
         val p = vm.activeProfile.value
         assertEquals(0.5f, p.appearance.buttonOpacity, 0.01f)
         assertFalse(p.appearance.showLabels)
-        assertEquals(com.ps2gamepad.model.ControllerBackground.BLACK, p.appearance.background)
         assertTrue(p.right.invertY)
         assertFalse(p.left.invertY)
         rule.onNodeWithTag("preview").assertIsDisplayed()

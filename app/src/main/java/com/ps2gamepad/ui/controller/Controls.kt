@@ -89,6 +89,7 @@ fun DigitalButton(
     val haptic = rememberHaptic()
     val style = LocalControlStyle.current
     val skin = LocalSkin.current
+    val neu = LocalNeu.current
     Box(
         modifier.inputIfInteractive(resetKey) { pointers, t ->
             val now = pointers.isNotEmpty()
@@ -102,25 +103,16 @@ fun DigitalButton(
         contentAlignment = Alignment.Center,
     ) {
         Canvas(Modifier.fillMaxSize()) {
-            val fill = if (pressed) skin.keyPressed else skin.key
-            val glow = if (skin.glow) (if (pressed) skin.labelPressed else skin.keyEdge) else null
-            when (shape) {
-                KeyShape.CIRCLE -> {
-                    drawCircle(skin.keyEdge, radius = size.minDimension / 2)
-                    drawCircle(fill, radius = size.minDimension / 2 * 0.9f)
-                    glow?.let { drawCircle(it, radius = size.minDimension / 2 * 0.92f, style = Stroke(size.minDimension * 0.05f)) }
-                }
+            val d = neuDepth(size)
+            val inset = d * 0.8f
+            val path = when (shape) {
+                KeyShape.CIRCLE -> circlePath(center, size.minDimension / 2 - inset)
                 KeyShape.PILL, KeyShape.ROUNDED -> {
-                    val r = if (shape == KeyShape.PILL) size.height / 2 else size.height * 0.28f
-                    drawRoundRect(skin.keyEdge, cornerRadius = CornerRadius(r))
-                    val inset = size.height * 0.07f
-                    drawRoundRect(fill, topLeft = Offset(inset, inset), size = Size(size.width - 2 * inset, size.height - 2 * inset), cornerRadius = CornerRadius(r - inset))
-                    glow?.let {
-                        drawRoundRect(it, topLeft = Offset(inset, inset), size = Size(size.width - 2 * inset, size.height - 2 * inset),
-                            cornerRadius = CornerRadius(r - inset), style = Stroke(size.height * 0.06f))
-                    }
+                    val sz = Size(size.width - 2 * inset, size.height - 2 * inset)
+                    roundRectPath(Offset(inset, inset), sz, if (shape == KeyShape.PILL) sz.height / 2 else sz.height * 0.3f)
                 }
             }
+            neuPath(path, neu, pressed, d)
         }
         if (style.showLabels) {
             Text(label, color = if (pressed) skin.labelPressed else skin.label, fontSize = fontSize, fontWeight = FontWeight.Bold, maxLines = 1)
@@ -139,6 +131,7 @@ fun DpadControl(input: ControllerInputManager, resetKey: Int, modifier: Modifier
     val haptic = rememberHaptic()
     val labels = LocalControlStyle.current.showLabels
     val skin = LocalSkin.current
+    val neu = LocalNeu.current
     Canvas(
         modifier
             .onSizeChanged { area = it }
@@ -158,7 +151,7 @@ fun DpadControl(input: ControllerInputManager, resetKey: Int, modifier: Modifier
         val c = center
         val arm = s * 0.30f
         val len = s * 0.47f
-        drawCircle(skin.centerPanel, radius = s * 0.5f)
+        val depth = (s * 0.035f).coerceIn(3f, 10f)
         fun arm(angleDeg: Float, active: Boolean) {
             val p = Path().apply {
                 moveTo(0f, -len); lineTo(arm / 2, -len); lineTo(arm / 2, -arm * 0.55f)
@@ -166,8 +159,7 @@ fun DpadControl(input: ControllerInputManager, resetKey: Int, modifier: Modifier
             }
             rotate(angleDeg, c) {
                 translate(c.x, c.y) {
-                    drawPath(p, if (active) skin.keyPressed else skin.key)
-                    drawPath(p, skin.keyEdge, style = Stroke(width = s * if (skin.glow) 0.02f else 0.012f))
+                    neuPath(p, neu, active, depth)
                     if (labels) {
                         val tri = Path().apply { moveTo(0f, -len * 0.86f); lineTo(arm * 0.18f, -len * 0.72f); lineTo(-arm * 0.18f, -len * 0.72f); close() }
                         drawPath(tri, if (active) skin.labelPressed else skin.label)
@@ -213,6 +205,7 @@ fun FaceButtons(input: ControllerInputManager, resetKey: Int, modifier: Modifier
     val haptic = rememberHaptic()
     val order = remember { listOf(ControllerButton.TRIANGLE, ControllerButton.CIRCLE, ControllerButton.CROSS, ControllerButton.SQUARE) }
     val skin = LocalSkin.current
+    val neu = LocalNeu.current
     val textMeasurer = rememberTextMeasurer()
     Canvas(
         modifier
@@ -241,24 +234,13 @@ fun FaceButtons(input: ControllerInputManager, resetKey: Int, modifier: Modifier
         val s = size.minDimension
         val centres = faceCentres(center, s, geo)
         val r = s * geo.buttonRadius
-        val colors = skin.faceColors
+        val colors = skin.faceColors // all = label colour (soft UI)
         for (i in 0 until 4) {
             val c = centres[i]
             val on = (pressedMask and (1 shl i)) != 0
-            drawCircle(skin.keyEdge, radius = r * 1.06f, center = c)
-            val fill = when {
-                skin.faceFilled -> if (on) skin.keyPressed else colors[i]
-                on -> colors[i].copy(alpha = 0.35f)
-                else -> skin.key
-            }
-            drawCircle(fill, radius = r, center = c)
-            if (skin.glow) drawCircle(colors[i].copy(alpha = if (on) 1f else 0.8f), radius = r * 1.02f, center = c, style = Stroke(r * 0.1f))
+            neuPath(circlePath(c, r * 0.94f), neu, on, (r * 0.13f).coerceIn(3f, 12f))
             if (!style.showLabels && !on) continue
-            val markColor = when {
-                skin.faceFilled -> if (on) skin.labelPressed else skin.label
-                on -> skin.labelPressed
-                else -> colors[i]
-            }
+            val markColor = colors[i]
             if (skin.faceMarks == FaceMarks.LETTERS) {
                 val layout = textMeasurer.measure(
                     skin.faceLetters.getOrElse(i) { "" },
@@ -314,7 +296,7 @@ fun AnalogStick(
     var origin by remember(resetKey) { mutableStateOf<Offset?>(null) }
     var knob by remember(resetKey) { mutableStateOf(Offset.Zero) } // displacement from origin, px
     var last by remember(resetKey) { mutableStateOf(StickVector.ZERO) }
-    val skin = LocalSkin.current
+    val neu = LocalNeu.current
 
     fun fixedCentre(travel: Float) = Offset(
         area.width / 2f + settings.centerOffsetX * travel,
@@ -362,21 +344,20 @@ fun AnalogStick(
         val s = size.minDimension
         val travel = s * STICK_TRAVEL
         val c = origin ?: if (settings.floating) center else fixedCentre(travel)
-        drawCircle(Color.White.copy(alpha = 0.03f), radius = s / 2)
-        drawCircle(skin.stickBase, radius = travel + s * 0.06f, center = c)
-        if (skin.glow) drawCircle(skin.accent.copy(alpha = 0.7f), radius = travel + s * 0.05f, center = c, style = Stroke(s * 0.012f))
-        drawCircle(Color.White.copy(alpha = 0.06f), radius = travel * settings.deadZone, center = c, style = Stroke(s * 0.006f))
-        val k = c + knob
-        val kr = s * 0.17f
-        drawCircle(Color.Black.copy(alpha = 0.5f), radius = kr * 1.08f, center = k + Offset(0f, s * 0.012f))
-        drawCircle(
-            Brush.radialGradient(listOf(skin.stickKnobLight, skin.stickKnobDark), center = k - Offset(kr * 0.3f, kr * 0.3f), radius = kr * 1.4f),
-            radius = kr, center = k,
-        )
-        drawCircle(skin.stickKnobDark, radius = kr * 0.72f, center = k, style = Stroke(s * 0.012f))
-        if (skin.glow) drawCircle(skin.accent, radius = kr, center = k, style = Stroke(s * 0.01f))
-        if (owner != null) drawCircle(Color.White.copy(alpha = 0.12f), radius = kr, center = k)
+        drawNeuStick(neu, c, travel, s, knob, owner != null, settings.deadZone)
     }
+}
+
+/** Stick drawn in soft UI: a pushed-in well and a raised knob (shared by the gyro indicator). */
+fun androidx.compose.ui.graphics.drawscope.DrawScope.drawNeuStick(
+    neu: NeuTheme, c: Offset, travel: Float, s: Float, knob: Offset, held: Boolean, deadZone: Float = 0f,
+) {
+    val depth = (s * 0.03f).coerceIn(3f, 12f)
+    neuPath(circlePath(c, travel + s * 0.07f), neu, pressed = true, depth = depth)
+    if (deadZone > 0f) drawCircle(neu.labelDim.copy(alpha = 0.25f), radius = travel * deadZone, center = c, style = Stroke(s * 0.006f))
+    val kr = s * 0.17f
+    neuPath(circlePath(c + knob, kr), neu, pressed = false, depth = depth * if (held) 0.6f else 1f)
+    drawCircle(neu.labelDim.copy(alpha = 0.35f), radius = kr * 0.55f, center = c + knob, style = Stroke(s * 0.008f))
 }
 
 const val STICK_TRAVEL = 0.27f // knob travel radius, fraction of the stick area

@@ -586,6 +586,9 @@ class MainViewModel(
     fun savePlacements(placements: Map<ControlId, Placement>) =
         settings.update { s -> ProfileManager.updateActive(s) { it.copy(placements = placements) } }
 
+    /** Light or black soft-UI theme, shared by the Emulator and PC controllers. */
+    fun setDarkControls(on: Boolean) = settings.update { it.copy(darkControls = on) }
+
     /** Layout editor "Save": positions/sizes of the built-in controls plus the user's extra buttons. */
     fun saveLayout(placements: Map<ControlId, Placement>, extras: List<com.ps2gamepad.model.ExtraButton>) =
         settings.update { s -> ProfileManager.updateActive(s) { it.copy(placements = placements, extraButtons = extras) } }

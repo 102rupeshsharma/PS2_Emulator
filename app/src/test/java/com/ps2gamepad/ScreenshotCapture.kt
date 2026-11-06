@@ -65,7 +65,7 @@ class ScreenshotCapture {
             vm.createLoadout("God of War"); vm.updateAppearance { it.copy(skin = com.ps2gamepad.model.ControllerSkin.PS5_STYLE) }; vm.setEditMode(false)
             vm.createLoadout("GTA San Andreas"); vm.updateAppearance { it.copy(skin = com.ps2gamepad.model.ControllerSkin.XBOX_STYLE) }
             vm.updateGyro { it.copy(enabled = true) }; vm.setEditMode(false)
-            vm.openController()
+            vm.chooseMode(com.ps2gamepad.model.GamingMode.EMULATOR)
         }
         shoot("07_loadouts")
         rule.runOnIdle { vm.playLoadout(com.ps2gamepad.settings.DefaultProfiles.STANDARD); vm.updateGyro { it.copy(enabled = false) } }
@@ -107,5 +107,13 @@ class ScreenshotCapture {
         shoot("17_diagnostics")
         rule.runOnIdle { vm.navigate(Screen.CONNECTION) }
         shoot("18_connection")
+        rule.runOnIdle { vm.openController() }
+        shoot("20_mode_select")
+        rule.runOnIdle { vm.setPcInputEnabled(true); vm.chooseMode(com.ps2gamepad.model.GamingMode.PC) }
+        shoot("21_pc_controller")
+        rule.runOnIdle { vm.setPcEditMode(true) }
+        shoot("22_pc_edit")
+        rule.runOnIdle { vm.setPcEditMode(false); vm.navigate(Screen.PC_PROFILES) }
+        shoot("23_pc_profiles")
     }
 }

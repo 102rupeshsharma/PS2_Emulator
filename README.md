@@ -2,7 +2,7 @@
 
 ## 📥 Download
 
-### **[⬇️ Download the APK (v1.4.0, 2.6 MB)](download/PS2BluetoothGamepad.apk?raw=true)**
+### **[⬇️ Download the APK (v1.5.0, 2.7 MB)](download/PS2BluetoothGamepad.apk?raw=true)**
 
 **Install on your phone:**
 1. Open this page on your Android phone and tap the download link above.
@@ -28,6 +28,8 @@ Requires Android 9 or newer with Bluetooth.
 | **PS5 Style** | **Xbox Style** |
 | ![PS5 style](docs/screenshots/04_style_ps5_style.png) | ![Xbox style](docs/screenshots/04_style_xbox_style.png) |
 
+| **Mode selection** | **PC Gaming controller** |
+| ![Modes](docs/screenshots/20_mode_select.png) | ![PC controller](docs/screenshots/21_pc_controller.png) |
 | **Loadouts (one per game)** | |
 | ![Loadouts](docs/screenshots/07_loadouts.png) | |
 | **Gyro right stick (test screen)** | **Controller with gyro** |
@@ -35,7 +37,7 @@ Requires Android 9 or newer with Bluetooth.
 
 5 styles: **PS2 Classic, PS5 Style, Xbox Style, Retro, Neon**. Only the look changes: every
 button position always sends the same signal, so emulator settings keep working when you switch.
-SHA-256: `baad98dd98db1ab635ecd44bb8074a3004c388db2cd50ceea71c7e7ad26f1e84`
+SHA-256: `e564113a2dded48b3851034c01bfa899910468ebd77233c189b65a6305b2c78a`
 
 ---
 
@@ -66,6 +68,9 @@ end-to-end latency are therefore all *unverified*. See [TEST_REPORT.md](TEST_REP
 - **Never-stuck inputs:** everything is released on lift, cancel, app pause, focus loss,
   notification shade, back, profile switch, layout editing, Bluetooth off and connection loss.
   A failed report is retried with the current state.
+- **Two modes:** *Emulator Gaming* (unchanged PS2 controller) and **PC Gaming**: Bluetooth keyboard +
+  mouse with a W/A/S/D stick, gyro mouse aiming, mouse buttons, wheel, custom buttons (key combos too)
+  and PC game profiles. See [PC_MODE.md](PC_MODE.md). Windows test pending.
 - **Loadouts (up to 5):** one saved setup per game. Each keeps its own button layout, sizes,
   opacity, style, sticks and gyro. Open Controller asks which loadout to play; create one, arrange the
   buttons, Save, and next time just pick it.

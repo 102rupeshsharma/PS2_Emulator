@@ -196,6 +196,27 @@ GyroViewModelTest (10), GyroUiTest (2): all passed.
 Automated: LoadoutLimitTest (4), LoadoutViewModelTest (4, including per-loadout settings after a
 simulated restart), LoadoutUiTest (4): all passed.
 
+## 4.9 PC Gaming Mode (1.5.0): final status
+
+Automated (simulated Bluetooth + simulated sensors), all PASSED: PcDescriptorTest (3), PcReportsTest (3),
+PcInputEngineTest (9), GyroMouseTest (5), PcProfilesTest (8), PcModeViewModelTest (9), PcModeUiTest (6).
+Full suite: **299 tests, 297 passed, 0 failed, 2 skipped**; lint clean; release build OK.
+
+| Area | Check | Status |
+|---|---|---|
+| A Emulator regression | Emulator Mode opens (via mode selection), layout/mappings unchanged, buttons, sticks, D-pad, multi-touch | PASSED (automated UI tests) / NOT TESTED on phone |
+| A | Bluetooth connection, reconnection, earbuds simultaneously | NOT TESTED after this change (unchanged code path when PC input is off) |
+| A | Emulator sends no keyboard/mouse reports; gamepad report byte-identical in both descriptors | PASSED (automated) |
+| B PC UI | Opens, default controls render, touch, edit mode, custom add/rename/remap/delete, resize, move | PASSED (automated UI) / NOT TESTED on phone |
+| B | Layout persists after restart | PASSED (codec + store tests) / NOT TESTED on phone |
+| C Keyboard | W/A/S/D, Space, Shift, Ctrl, Esc, custom keys, Ctrl+E, simultaneous keys, release, no stuck keys after disconnect | PASSED (report-level, mocked) / **NOT TESTED on Windows** |
+| D Gyro | Init, 4 directions, sensitivity, dead zone, calibration, recenter, no drift when still, disable, sensors stop when leaving | PASSED (simulated sensors) / NOT TESTED on phone |
+| E Mouse | Left/right/middle, wheel, hold, release, move + click together, no stuck buttons | PASSED (report-level, mocked) / **NOT TESTED on Windows** |
+| F Profiles | Create, rename, edit, duplicate, delete (confirm), switch, restore (confirm), persist, emulator data untouched | PASSED (automated) |
+| G Real PC games | Keyboard/mouse game, custom-mapping game | **NOT TESTED** (no hardware run yet) |
+| G | XInput game | **BLOCKED**: XInput is not implemented (keyboard/mouse only; documented) |
+| Windows | Composite descriptor accepted (keyboard + mouse devices appear after re-pair) | **NOT TESTED** (first thing to verify) |
+
 ## 5. Final acceptance checklist
 
 | # | Criterion | Status |

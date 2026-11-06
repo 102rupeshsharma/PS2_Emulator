@@ -191,9 +191,18 @@ data class ProfileStore(
     val lastConnection: LastConnection? = null,
     /** Gyro neutral hold, shared by all profiles (it is about how you hold the phone). */
     val gyroNeutral: GyroNeutral? = null,
+    /** PC Mode data: completely separate from the emulator profiles above. */
+    val pc: com.ps2gamepad.pc.PcStore = com.ps2gamepad.pc.PcStore(),
+    /** PC input (keyboard + mouse HID) enabled: registers the composite descriptor (needs one re-pair). */
+    val pcInputEnabled: Boolean = false,
+    /** Last mode chosen on the mode selection screen. */
+    val lastMode: GamingMode? = null,
 ) {
     val active: ControllerProfile get() = profiles.firstOrNull { it.id == activeId } ?: profiles.first()
 }
+
+@Serializable
+enum class GamingMode(val label: String) { EMULATOR("Emulator Gaming"), PC("PC Gaming") }
 
 @Serializable
 data class LastConnection(val hostName: String, val epochMillis: Long, val address: String? = null)

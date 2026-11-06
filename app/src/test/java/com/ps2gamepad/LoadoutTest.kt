@@ -100,6 +100,8 @@ class LoadoutViewModelTest {
     @Test fun openControllerAsksForALoadout() = runTest(dispatcher) {
         val vm = newVm(); runCurrent()
         vm.openController()
+        assertEquals("Open Controller asks for the gaming mode", Screen.MODE_SELECT, vm.screen.value)
+        vm.chooseMode(com.ps2gamepad.model.GamingMode.EMULATOR)
         assertEquals(Screen.LOADOUTS, vm.screen.value)
         vm.playLoadout(DefaultProfiles.STANDARD)
         assertEquals(Screen.CONTROLLER, vm.screen.value)
@@ -169,7 +171,7 @@ class LoadoutUiTest {
     @Before fun setUp() {
         vm = MainViewModel(FakeHid(), MutableStateFlow(BluetoothState.ENABLED), { emptyList() }, DiagnosticLog(), emptyList(), { 0L }, newId = { "u${n++}" })
         rule.setContent { App(vm, AppActions({}, {}, {}, {})) }
-        rule.runOnIdle { vm.openController() }
+        rule.runOnIdle { vm.chooseMode(com.ps2gamepad.model.GamingMode.EMULATOR) }
     }
 
     @Test fun pickerShowsDefaultAndNewCard() {
@@ -190,7 +192,7 @@ class LoadoutUiTest {
         }
         rule.onNodeWithText("EDIT LAYOUT").assertIsDisplayed()
         rule.onNodeWithTag("chip_Save").performClick()
-        rule.runOnIdle { vm.openController() }
+        rule.runOnIdle { vm.chooseMode(com.ps2gamepad.model.GamingMode.EMULATOR) }
         rule.onNodeWithText("1 / 5 loadouts").assertIsDisplayed()
         rule.onNodeWithText("LAST USED").assertIsDisplayed()
         rule.onNodeWithTag("play_standard").performClick()
@@ -201,7 +203,7 @@ class LoadoutUiTest {
     }
 
     @Test fun deleteNeedsConfirmation() {
-        rule.runOnIdle { vm.createLoadout("Temp"); vm.openController() }
+        rule.runOnIdle { vm.createLoadout("Temp"); vm.chooseMode(com.ps2gamepad.model.GamingMode.EMULATOR) }
         val id = vm.loadouts.first().id
         rule.onNodeWithTag("delete_$id").performClick()
         rule.onNodeWithText("Delete loadout \"Temp\"?").assertIsDisplayed()
@@ -212,7 +214,7 @@ class LoadoutUiTest {
     }
 
     @Test fun newCardDisappearsAtTheLimit() {
-        rule.runOnIdle { repeat(5) { vm.createLoadout("Game $it") }; vm.openController() }
+        rule.runOnIdle { repeat(5) { vm.createLoadout("Game $it") }; vm.chooseMode(com.ps2gamepad.model.GamingMode.EMULATOR) }
         rule.onNodeWithText("5 / 5 loadouts").assertIsDisplayed()
         rule.onNodeWithTag("newLoadoutCard").assertDoesNotExist()
     }

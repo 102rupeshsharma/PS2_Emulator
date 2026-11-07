@@ -3,10 +3,15 @@ package com.ps2gamepad.ui
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.displayCutout
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -23,6 +28,37 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
+/** Screens at least this wide show two panes side by side; narrower (a phone in portrait) stack them. */
+val WIDE_LAYOUT = 600.dp
+
+/**
+ * 3.4.0: the app is portrait (only the controller is landscape). On a phone the two panes of a
+ * screen are stacked in one scrolling column; on a wide screen (tablet) they sit side by side,
+ * each scrolling on its own.
+ */
+@Composable
+fun TwoPane(
+    modifier: Modifier = Modifier,
+    firstWeight: Float = 1f,
+    secondWeight: Float = 1f,
+    first: @Composable ColumnScope.() -> Unit,
+    second: @Composable ColumnScope.() -> Unit,
+) {
+    BoxWithConstraints(modifier) {
+        if (maxWidth >= WIDE_LAYOUT) {
+            Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Column(Modifier.weight(firstWeight).fillMaxHeight().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp), content = first)
+                Column(Modifier.weight(secondWeight).fillMaxHeight().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp), content = second)
+            }
+        } else {
+            Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                first()
+                second()
+            }
+        }
+    }
+}
+
 /** Common frame for the secondary screens: title row with a back action, landscape-safe padding. */
 @Composable
 fun ScreenFrame(
@@ -33,7 +69,7 @@ fun ScreenFrame(
 ) {
     BackHandler(onBack = onBack)
     Column(
-        Modifier.fillMaxSize().background(Palette.Background).windowInsetsPadding(WindowInsets.displayCutout).padding(12.dp),
+        Modifier.fillMaxSize().background(Palette.Background).windowInsetsPadding(WindowInsets.safeDrawing).padding(12.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {

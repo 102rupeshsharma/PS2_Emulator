@@ -29,6 +29,9 @@ The full guide below walks you through each step.
 
 Setup takes about 5 minutes the first time. After that you just open the app.
 
+Hold the phone upright (portrait) for the app's menus. When you open the controller, the screen turns
+sideways (landscape) by itself; when you leave the controller it turns back.
+
 ### Step 1: Install the app on your phone
 
 1. Open this page **on your phone** and tap **⬇️ Download PadLink** at the [bottom of this page](#-download).
@@ -167,7 +170,7 @@ layouts and settings stay. You only need to pair again if the guide or the relea
 
 ---
 
-**Version 3.3.0.** 278 automated tests (275 passed, 3 skipped).
+**Version 3.4.0.** 287 automated tests (284 passed, 3 skipped).
 - Confirmed on real hardware by the developer (POCO F6 + Windows 11): registration, pairing,
   Windows game controller test (`joy.cpl`), PCSX2 with manual binding.
 - Not yet confirmed on hardware: gyro aiming, button styles, combo buttons, loadouts and the battery saver.
@@ -308,28 +311,9 @@ Source layout: `bluetooth/` (HID layer), `controller/` (input manager, stick mat
 
 ## 📥 Download
 
-### **[⬇️ Download PadLink (v3.3.0, 2.5 MB)](https://raw.githubusercontent.com/102rupeshsharma/PS2_Emulator/main/download/PadLink.apk)**
+### **[⬇️ Download PadLink (v3.4.0, 2.5 MB)](https://raw.githubusercontent.com/102rupeshsharma/PS2_Emulator/main/download/PadLink.apk)**
 
 Tap the link on your Android phone, open the downloaded file and tap **Install**. It installs over an
 older version, and your loadouts are kept.
 
-SHA-256: `9ad1f6c5e99fbd8e0621b87c51a8411a74753fa806605f6d44db11b897888dfc`
-
-## ❤️ Support this project
-
-PadLink is free. If it helped you and you'd like to say thanks, a small donation by **UPI** is welcome.
-
-**Scan with any UPI app** (Google Pay, PhonePe, Paytm, BHIM…):
-
-<img src="docs/support/upi-qr.png" alt="UPI QR code: Rupesh Sharma, 102rupeshsharma@okicici" width="260">
-
-Or pay to a UPI ID (open your UPI app → **Pay to UPI ID** → paste → any amount → send):
-
-```
-102rupeshsharma@okicici
-```
-```
-7483124898@superyes
-```
-
-Thank you! 🙏
+SHA-256: `71dbe2d88f6965a8f2a4a3586d2871c9527982c16e2131fb3a6fe804f3092746`

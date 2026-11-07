@@ -83,7 +83,7 @@ fun StatusRow(title: String, value: String, severity: Severity) {
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(vertical = 1.dp)) {
         StatusDot(severity)
         Text("$title:", color = Palette.TextDim, fontSize = 12.sp)
-        Text(value, color = Palette.Text, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+        Text(value, color = Palette.Text, fontSize = 12.sp, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f, fill = false))
     }
 }
 

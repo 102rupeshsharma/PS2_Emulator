@@ -1,5 +1,9 @@
 package com.ps2gamepad.ui
 
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -43,12 +47,23 @@ fun CalibrationScreen(vm: MainViewModel) {
     val pad by vm.gamepad.collectAsStateWithLifecycle()
     val epoch by vm.input.resetEpoch.collectAsStateWithLifecycle()
     ScreenFrame("Analog calibration: ${profile.name}", onBack = { vm.navigate(Screen.HOME) }) {
-        Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            for (stick in Stick.entries) {
-                val s = profile.stick(stick)
-                val hidX = if (stick == Stick.LEFT) pad.leftX else pad.rightX
-                val hidY = if (stick == Stick.LEFT) pad.leftY else pad.rightY
-                StickCalibration(vm, stick, s, epoch, hidX, hidY, Modifier.weight(1f))
+        @Composable
+        fun one(stick: Stick, m: Modifier) {
+            val s = profile.stick(stick)
+            val hidX = if (stick == Stick.LEFT) pad.leftX else pad.rightX
+            val hidY = if (stick == Stick.LEFT) pad.leftY else pad.rightY
+            StickCalibration(vm, stick, s, epoch, hidX, hidY, m)
+        }
+        androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxSize()) {
+            if (maxWidth >= WIDE_LAYOUT) {
+                Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    for (stick in Stick.entries) one(stick, Modifier.weight(1f))
+                }
+            } else {
+                // portrait phone: the two sticks one under the other
+                Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                    for (stick in Stick.entries) one(stick, Modifier.fillMaxWidth().height(330.dp))
+                }
             }
         }
     }

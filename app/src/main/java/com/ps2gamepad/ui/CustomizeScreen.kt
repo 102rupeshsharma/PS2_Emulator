@@ -49,21 +49,18 @@ fun CustomizeScreen(vm: MainViewModel) {
     var opacityTarget by remember { mutableStateOf(ControlId.CROSS) }
 
     ScreenFrame("Customize: ${profile.name}", onBack = { vm.navigate(Screen.HOME) }) {
-        Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        TwoPane(Modifier.fillMaxSize(), secondWeight = 1.1f, first = {
                 Text("Preview (same layout as the controller, not interactive)", color = Palette.TextDim, fontSize = 11.sp)
                 ControllerPreview(
                     vm.input, profile, modifier =
                     Modifier.fillMaxWidth().border(1.dp, Palette.SurfaceHigh, RoundedCornerShape(8.dp)).testTag("preview"),
                 )
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     ActionButton("Edit layout") { vm.navigate(Screen.CONTROLLER); vm.setEditMode(true) }
                     ActionButton("Reset layout", outlined = true, onClick = vm::resetLayout)
                     ActionButton("Reset look", outlined = true, onClick = vm::resetAppearance)
                 }
-            }
-
-            Column(Modifier.weight(1.1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            }, second = {
                 Card {
                     Text("Appearance", color = Palette.TextDim, fontSize = 12.sp)
                     LabeledSlider("Button size", a.buttonScale, 0.6f..1.6f, ::pct, "s_buttonScale") { v -> vm.updateAppearance { it.copy(buttonScale = v) } }
@@ -89,7 +86,7 @@ fun CustomizeScreen(vm: MainViewModel) {
                     ActionButton("All controls to 100 %", outlined = true) { vm.updateAppearance { it.copy(controlOpacity = emptyMap()) } }
                 }
                 Card {
-                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         Text("Analog", color = Palette.TextDim, fontSize = 12.sp)
                         Stick.entries.forEach { s ->
                             FilterChip(selected = stickTab == s, onClick = { stickTab = s },
@@ -99,8 +96,7 @@ fun CustomizeScreen(vm: MainViewModel) {
                     StickSettingsEditor(profile.stick(stickTab)) { f -> vm.updateStick(stickTab, f) }
                     ActionButton("Calibrate / live test", outlined = true) { vm.navigate(Screen.CALIBRATION) }
                 }
-            }
-        }
+            })
     }
 }
 

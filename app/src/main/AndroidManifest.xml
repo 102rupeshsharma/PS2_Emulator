@@ -31,7 +31,7 @@
             android:name=".ui.MainActivity"
             android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|smallestScreenSize|density|uiMode"
             android:exported="true"
-            android:screenOrientation="sensorLandscape"
+            android:screenOrientation="sensorPortrait"
             tools:ignore="DiscouragedApi"
             android:windowSoftInputMode="adjustNothing">
             <intent-filter>

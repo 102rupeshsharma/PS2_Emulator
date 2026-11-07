@@ -142,5 +142,15 @@ class PortraitHomeScreenshots {
         shoot("01b_home_connecting")
         rule.runOnIdle { hid.emit(HidEvent.ConnectionChanged(laptop, HidStateReducer.STATE_CONNECTED)) }
         shoot("02_home_connected")
+        // 3.4.0: every screen except the controller is portrait
+        rule.runOnIdle { vm.createLoadout("God of War"); vm.setEditMode(false); vm.openController() }
+        shoot("07_loadouts")
+        for ((screen, name) in listOf(
+            Screen.DASHBOARD to "10_dashboard", Screen.CUSTOMIZE to "14_customize", Screen.PROFILES to "15_profiles",
+            Screen.CALIBRATION to "16_calibration", Screen.DIAGNOSTICS to "17_diagnostics", Screen.CONNECTION to "18_connection",
+        )) {
+            rule.runOnIdle { vm.navigate(screen) }
+            shoot(name)
+        }
     }
 }

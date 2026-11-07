@@ -2,6 +2,7 @@ package com.ps2gamepad.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -36,6 +37,7 @@ private sealed interface ProfileDialog {
 }
 
 /** Profile manager: switch, create, rename, duplicate, delete, restore defaults. Saved automatically. */
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 fun ProfilesScreen(vm: MainViewModel) {
     val store by vm.profiles.collectAsStateWithLifecycle()
@@ -59,12 +61,12 @@ fun ProfilesScreen(vm: MainViewModel) {
         LazyColumn(state = listState, verticalArrangement = Arrangement.spacedBy(6.dp)) {
             items(store.profiles, key = { it.id }) { p ->
                 val active = p.id == store.activeId
-                Row(
+                Column(
                     Modifier.fillMaxWidth().background(if (active) Palette.SurfaceHigh else Palette.Surface, RoundedCornerShape(8.dp))
                         .padding(8.dp).testTag("profile_${p.id}"),
-                    verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
-                    Column(Modifier.weight(1f)) {
+                    Column {
                         Text(p.name + if (active) "  (active)" else "", color = Palette.Text, fontWeight = if (active) FontWeight.Bold else FontWeight.Normal)
                         Text(
                             (if (p.builtIn) "Built-in" else "Custom") + " · L sens ${mult(p.left.sensitivity)} · R sens ${mult(p.right.sensitivity)}" +
@@ -72,11 +74,13 @@ fun ProfilesScreen(vm: MainViewModel) {
                             color = Palette.TextDim, fontSize = 10.sp,
                         )
                     }
-                    if (!active) ActionButton("Use") { vm.switchProfile(p.id) }
+                    androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    if (!active) Box(Modifier.testTag("use_${p.id}")) { ActionButton("Use") { vm.switchProfile(p.id) } }
                     ActionButton("Rename", outlined = true) { dialog = ProfileDialog.Rename(p) }
                     ActionButton("Duplicate", enabled = com.ps2gamepad.settings.ProfileManager.canCreateLoadout(store), outlined = true) { vm.duplicateProfile(p.id) }
                     if (p.builtIn) ActionButton("Restore", outlined = true) { vm.restoreProfileDefaults(p.id) }
                     else ActionButton("Delete", outlined = true) { dialog = ProfileDialog.Delete(p) }
+                    }
                 }
             }
         }

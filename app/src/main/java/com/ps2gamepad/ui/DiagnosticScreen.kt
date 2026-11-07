@@ -8,7 +8,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.displayCutout
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -36,6 +36,7 @@ import com.ps2gamepad.bluetooth.HidReportManager
 import com.ps2gamepad.model.ControllerButton
 
 /** Phase 2 diagnostic screen: full controller state, link status, measured sender stats, stick tuning. */
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 fun DiagnosticScreen(vm: MainViewModel) {
     val pad by vm.gamepad.collectAsStateWithLifecycle()
@@ -59,13 +60,12 @@ fun DiagnosticScreen(vm: MainViewModel) {
 
     BackHandler { vm.navigate(Screen.HOME) }
 
-    Row(
-        Modifier.fillMaxSize().background(Palette.Background).windowInsetsPadding(WindowInsets.displayCutout).padding(12.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        Column(Modifier.weight(1.2f).fillMaxSize().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Controller Diagnostics", color = Palette.Text, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+    TwoPane(
+        Modifier.fillMaxSize().background(Palette.Background).windowInsetsPadding(WindowInsets.safeDrawing).padding(12.dp),
+        firstWeight = 1.2f,
+        first = {
+            Text("Controller Diagnostics", color = Palette.Text, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+            androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 ActionButton("Controller", onClick = { vm.navigate(Screen.CONTROLLER) })
                 ActionButton("Home", outlined = true, onClick = { vm.navigate(Screen.HOME) })
             }
@@ -79,12 +79,10 @@ fun DiagnosticScreen(vm: MainViewModel) {
             }
             Card {
                 Text("Buttons", color = Palette.TextDim, fontSize = 12.sp)
-                ControllerButton.entries.chunked(6).forEach { row ->
-                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        row.forEach { b -> ButtonLamp("${b.label} (B${b.hidButton})", pad.isPressed(b)) }
-                    }
+                androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    ControllerButton.entries.forEach { b -> ButtonLamp("${b.label} (B${b.hidButton})", pad.isPressed(b)) }
                 }
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     ButtonLamp("Up", pad.dpad.up); ButtonLamp("Down", pad.dpad.down)
                     ButtonLamp("Left", pad.dpad.left); ButtonLamp("Right", pad.dpad.right)
                 }
@@ -95,9 +93,8 @@ fun DiagnosticScreen(vm: MainViewModel) {
                 Text(HidReportManager.describe(pad), color = Palette.TextDim, fontSize = 11.sp)
             }
             ActionButton("Reset All Inputs", onClick = vm::releaseAllInputs)
-        }
-
-        Column(Modifier.weight(1f).fillMaxSize().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        },
+        second = {
             Card {
                 Text("Measured on the phone (sendReport calls)", color = Palette.TextDim, fontSize = 12.sp)
                 StatusRow("Reports sent", stats.reportsSent.toString(), Severity.IDLE)
@@ -123,8 +120,8 @@ fun DiagnosticScreen(vm: MainViewModel) {
                 Text("Report generation = encode + queue for sending. Excludes the radio, Windows and PCSX2.", color = Palette.TextDim, fontSize = 10.sp)
             }
             Spacer(Modifier.height(4.dp))
-        }
-    }
+        },
+    )
 }
 
 @Composable

@@ -30,6 +30,11 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 
+/** 3.4.0: the whole app is portrait; only the controller (playing and editing its layout) is landscape. */
+fun orientationFor(screen: Screen): Int =
+    if (screen == Screen.CONTROLLER) ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+    else ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT
+
 class MainActivity : ComponentActivity() {
 
     private val vm: MainViewModel by viewModels { factory() }
@@ -89,9 +94,7 @@ class MainActivity : ComponentActivity() {
                     else window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
                     applyPowerSaving(playing && saver)
                     applyLowLatencyTouch(playing)
-                    // 3.3.0: the start screen is portrait, the controller and all other screens landscape
-                    val wanted = if (s == Screen.HOME) ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT
-                    else ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+                    val wanted = orientationFor(s)
                     if (requestedOrientation != wanted) requestedOrientation = wanted
                 }
             }

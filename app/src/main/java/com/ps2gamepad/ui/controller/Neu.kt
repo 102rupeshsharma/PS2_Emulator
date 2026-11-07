@@ -1,6 +1,5 @@
 package com.ps2gamepad.ui.controller
 
-import android.graphics.BlurMaskFilter
 import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.staticCompositionLocalOf
@@ -12,12 +11,11 @@ import androidx.compose.ui.geometry.RoundRect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.asAndroidPath
-import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.clipPath
-import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
-import androidx.compose.ui.graphics.toArgb
 
 /**
  * Soft UI ("neumorphism") for both controllers (1.8.0): every control has the background colour
@@ -65,43 +63,42 @@ fun neuDepth(size: Size) = (size.minDimension * 0.07f).coerceIn(3f, 14f)
 
 /**
  * Draws [path] as a soft-UI shape: raised (outer light + dark shadows) or, when [pressed], pushed in
- * (flat darker fill + inner shadows). Shadows are drawn outside the path, so callers inset the
- * path by about [depth] to keep them on screen.
+ * (darker fill + inner shadows). Shadows are drawn outside the path, so callers inset the path by
+ * about [depth] to keep them on screen.
+ *
+ * 1.9.0: the soft edge is built from a few translucent strokes instead of BlurMaskFilter. A blur
+ * mask is not drawn the same way by every phone's GPU (it can come out as hard-edged boxes); plain
+ * strokes look identical on every device and in the screenshot tests.
  */
 fun DrawScope.neuPath(path: Path, t: NeuTheme, pressed: Boolean, depth: Float, fill: Color = t.bg) {
-    val blur = depth * 1.4f
     if (!pressed) {
-        drawIntoCanvas { c ->
-            val native = c.nativeCanvas
-            val ap = path.asAndroidPath()
-            val paint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
-                maskFilter = BlurMaskFilter(blur, BlurMaskFilter.Blur.NORMAL)
-            }
-            paint.color = t.shadowDark.toArgb()
-            native.save(); native.translate(depth, depth); native.drawPath(ap, paint); native.restore()
-            paint.color = t.shadowLight.toArgb()
-            native.save(); native.translate(-depth, -depth); native.drawPath(ap, paint); native.restore()
-        }
+        softShadow(path, t.shadowDark, Offset(depth, depth), depth * 1.6f, 0.55f)
+        softShadow(path, t.shadowLight, Offset(-depth, -depth), depth * 1.6f, if (t.dark) 0.7f else 0.95f)
         drawPath(path, fill)
     } else {
         drawPath(path, t.pressed)
         clipPath(path) {
-            drawIntoCanvas { c ->
-                val native = c.nativeCanvas
-                val ap = path.asAndroidPath()
-                val paint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
-                    style = android.graphics.Paint.Style.STROKE
-                    strokeWidth = depth * 2f
-                    maskFilter = BlurMaskFilter(blur, BlurMaskFilter.Blur.NORMAL)
-                }
-                paint.color = t.shadowDark.toArgb()
-                native.save(); native.translate(depth * 0.6f, depth * 0.6f); native.drawPath(ap, paint); native.restore()
-                paint.color = t.shadowLight.toArgb()
-                native.save(); native.translate(-depth * 0.6f, -depth * 0.6f); native.drawPath(ap, paint); native.restore()
-            }
+            softShadow(path, t.shadowDark, Offset(depth * 0.7f, depth * 0.7f), depth * 1.2f, 0.6f, inner = true)
+            softShadow(path, t.shadowLight, Offset(-depth * 0.7f, -depth * 0.7f), depth * 1.2f, if (t.dark) 0.5f else 0.8f, inner = true)
         }
     }
 }
+
+/**
+ * A soft shadow of [path] shifted by [offset]: [STEPS] strokes from wide/faint to narrow, plus the
+ * filled shape for an outer shadow. Total opacity at the edge is about [strength].
+ */
+private fun DrawScope.softShadow(path: Path, color: Color, offset: Offset, spread: Float, strength: Float, inner: Boolean = false) {
+    val a = strength / STEPS
+    translate(offset.x, offset.y) {
+        for (i in STEPS downTo 1) {
+            drawPath(path, color.copy(alpha = color.alpha * a), style = Stroke(width = spread * 2f * i / STEPS, join = StrokeJoin.Round))
+        }
+        if (!inner) drawPath(path, color.copy(alpha = color.alpha * strength))
+    }
+}
+
+private const val STEPS = 6
 
 fun circlePath(center: Offset, radius: Float) = Path().apply {
     addOval(androidx.compose.ui.geometry.Rect(center.x - radius, center.y - radius, center.x + radius, center.y + radius))

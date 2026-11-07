@@ -137,13 +137,9 @@ class ControllerUiTest {
 
     @Test fun everyFaceButton() {
         connectHost(); openController()
-        // cluster geometry at spacing 1: buttons 0.32 of the size from the centre
-        val spots = mapOf(
-            ControllerButton.TRIANGLE to (0.5f to 0.18f), ControllerButton.CIRCLE to (0.82f to 0.5f),
-            ControllerButton.CROSS to (0.5f to 0.82f), ControllerButton.SQUARE to (0.18f to 0.5f),
-        )
-        for ((b, xy) in spots) {
-            root.performTouchInput { down(0, at("face", xy.first, xy.second)) }
+        // 1.9.0: four separate buttons, each with its own tag
+        for (b in listOf(ControllerButton.TRIANGLE, ControllerButton.CIRCLE, ControllerButton.CROSS, ControllerButton.SQUARE)) {
+            root.performTouchInput { down(0, at("btn_${b.name}")) }
             rule.waitForIdle()
             assertEquals(b.label, b.mask, state.buttons)
             root.performTouchInput { up(0) }
@@ -200,7 +196,7 @@ class ControllerUiTest {
         root.performTouchInput {
             down(0, at("stick_left"))
             moveTo(0, at("stick_left") + Offset(travel, 0f))
-            down(1, at("face", 0.5f, 0.82f))     // Cross
+            down(1, at("btn_CROSS"))
             down(2, at("btn_L1"))
             down(3, at("btn_R1"))
             down(4, at("stick_right")); moveTo(4, at("stick_right") + Offset(0f, travel))
@@ -262,12 +258,14 @@ class ControllerUiTest {
         assertEquals(0, state.buttons)
         assertEquals(sentBefore, hid.sent.size)
 
-        // dragging L1 onto the D-pad is refused (snaps back)
+        // 1.9.0: controls may overlap, so dragging L2 onto L1 is allowed and stays there
         val l1Before = bounds("edit_L1")
-        val toDpad = bounds("dpad").center - l1Before.center
-        rule.onNodeWithTag("edit_L1").performTouchInput { down(center); moveBy(toDpad / 2f); moveBy(toDpad / 2f); up() }
+        val l2Before = bounds("edit_L2")
+        val toL1 = l1Before.center - l2Before.center
+        rule.onNodeWithTag("edit_L2").performTouchInput { down(center); moveBy(toL1 / 2f); moveBy(toL1 / 2f); up() }
         rule.waitForIdle()
-        assertEquals(l1Before.center.x, bounds("edit_L1").center.x, 1f)
+        // (the first few px of a drag are touch slop, so it lands a little short of the target)
+        assertTrue(bounds("edit_L2").center.y > l2Before.center.y + toL1.y * 0.7f)
 
         // dragging L1 a little to the right into free space works, and Save persists it
         rule.onNodeWithTag("edit_L1").performTouchInput { down(center); moveBy(Offset(40f, 0f)); moveBy(Offset(40f, 0f)); up() }

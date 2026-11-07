@@ -11,9 +11,20 @@ import kotlinx.serialization.Serializable
 @Serializable
 enum class ControlId(val label: String) {
     L2("L2"), L1("L1"), R2("R2"), R1("R1"),
-    DPAD("D-pad"), FACE("Face buttons"),
+    DPAD("D-pad"),
+    /** Legacy (before 1.9.0): the four face buttons as one cluster. Kept so old layouts still load;
+     *  its position/size is now only the starting point of the four separate buttons below. */
+    FACE("Face buttons"),
     LEFT_STICK("Left stick"), RIGHT_STICK("Right stick"),
     L3("L3"), R3("R3"), SELECT("Select"), START("Start"),
+    TRIANGLE("Triangle"), CIRCLE("Circle"), CROSS("Cross"), SQUARE("Square");
+
+    companion object {
+        /** Face buttons in cluster order: top, right, bottom, left. */
+        val FACE_BUTTONS = listOf(TRIANGLE, CIRCLE, CROSS, SQUARE)
+        /** Controls that are drawn and can be moved (everything except the legacy cluster). */
+        val editable: List<ControlId> = entries.filter { it != FACE }
+    }
 }
 
 @Serializable
@@ -76,7 +87,8 @@ data class Appearance(
     /** Extra opacity per control (1 = fully visible), applied on top of [buttonOpacity]. */
     val controlOpacity: Map<ControlId, Float> = emptyMap(),
 ) {
-    fun opacityOf(id: ControlId): Float = controlOpacity[id] ?: 1f
+    fun opacityOf(id: ControlId): Float =
+        controlOpacity[id] ?: (if (id in ControlId.FACE_BUTTONS) controlOpacity[ControlId.FACE] else null) ?: 1f
 
     fun sanitized() = copy(
         buttonScale = buttonScale.finiteOr(1f).coerceIn(0.6f, 1.6f),

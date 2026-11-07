@@ -47,7 +47,7 @@ fun CustomizeScreen(vm: MainViewModel) {
     val dark = vm.profiles.collectAsStateWithLifecycle().value.darkControls
     val a = profile.appearance
     var stickTab by remember { mutableStateOf(Stick.LEFT) }
-    var opacityTarget by remember { mutableStateOf(ControlId.FACE) }
+    var opacityTarget by remember { mutableStateOf(ControlId.CROSS) }
 
     ScreenFrame("Customize: ${profile.name}", onBack = { vm.navigate(Screen.HOME) }) {
         Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -57,13 +57,6 @@ fun CustomizeScreen(vm: MainViewModel) {
                     vm.input, profile, dark = dark, modifier =
                     Modifier.fillMaxWidth().border(1.dp, Palette.SurfaceHigh, RoundedCornerShape(8.dp)).testTag("preview"),
                 )
-                val overlaps = remember(a, profile.placements) { LayoutEngine.overlaps(LayoutEngine.resolve(900f, 900f / 2.2f, a, profile.placements)) }
-                if (overlaps.isNotEmpty()) {
-                    Text(
-                        "Warning: ${overlaps.joinToString { "${it.first.label}/${it.second.label}" }} overlap at this size. Reduce sizes or move them in Edit layout.",
-                        color = Palette.Warn, fontSize = 11.sp, modifier = Modifier.testTag("overlapWarning"),
-                    )
-                }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     ActionButton("Edit layout") { vm.navigate(Screen.CONTROLLER); vm.setEditMode(true) }
                     ActionButton("Reset layout", outlined = true, onClick = vm::resetLayout)
@@ -84,7 +77,7 @@ fun CustomizeScreen(vm: MainViewModel) {
                 Card {
                     Text("Opacity of each control (on top of \"all controls\")", color = Palette.TextDim, fontSize = 12.sp)
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        ControlId.entries.forEach { id ->
+                        ControlId.editable.forEach { id ->
                             val pctText = (a.opacityOf(id) * 100).toInt()
                             FilterChip(selected = opacityTarget == id, onClick = { opacityTarget = id },
                                 label = { Text(if (pctText < 100) "${id.label} $pctText%" else id.label, fontSize = 11.sp) },

@@ -156,6 +156,7 @@ fun PcControllerScreen(vm: MainViewModel) {
                 ) { vm.togglePcGyro() }
                 Chip("⟳", "pc_recenter") { vm.pcGyroRecenter() }
                 Chip("Edit", "pc_edit") { vm.setPcEditMode(true) }
+                Chip(if (neu.dark) "☀" else "☾", "pc_theme") { vm.setDarkControls(!neu.dark) }
             }
         }
         if (!store.pcInputEnabled && !editing) {

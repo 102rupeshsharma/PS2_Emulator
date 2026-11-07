@@ -1,11 +1,8 @@
 # PS2 Bluetooth Gamepad (Android → Windows / PCSX2)
 
-## 📥 Download
+## 📲 Install on your phone
 
-### **[⬇️ Download the APK (v1.8.0, 2.7 MB)](https://raw.githubusercontent.com/102rupeshsharma/PS2_Emulator/main/download/PS2BluetoothGamepad.apk)**
-
-**Install on your phone:**
-1. Open this page on your Android phone and tap the download link above.
+1. Open this page on your Android phone and tap the **Download** link at the [bottom of this page](#-download).
 2. Open the downloaded `PS2BluetoothGamepad.apk` (from the notification or the Downloads folder).
 3. If asked, allow **"Install unknown apps"** for your browser or file manager, then tap **Install**.
    Android or Play Protect may warn that the app is from an unknown developer, because it isn't
@@ -30,7 +27,7 @@ Requires Android 9 or newer with Bluetooth.
 | **Loadouts (one per game)** | **Controller with gyro** |
 | ![Loadouts](docs/screenshots/07_loadouts.png) | ![Controller gyro](docs/screenshots/06_controller_gyro.png) |
 
-SHA-256: `1b9b353513e5dc505959c28e119a3215de648200eced3be39b88d53194c57f08`
+SHA-256: `a617f8a70e1d6c9bd1a74d0d6799ea7b5ef9bd5f5fc148f0ff22ab7ea7fe27a5`
 
 ---
 
@@ -130,7 +127,7 @@ Source layout: `bluetooth/` (HID layer), `controller/` (input manager, stick mat
 
 ## 📥 Download
 
-### **[⬇️ Download the APK (v1.8.0, 2.7 MB)](https://raw.githubusercontent.com/102rupeshsharma/PS2_Emulator/main/download/PS2BluetoothGamepad.apk)**
+### **[⬇️ Download the APK (v1.9.0, 2.7 MB)](https://raw.githubusercontent.com/102rupeshsharma/PS2_Emulator/main/download/PS2BluetoothGamepad.apk)**
 
 Tap the link on your Android phone, open the downloaded file and tap **Install**. It installs over an
 older version, and your loadouts and pairing are kept.

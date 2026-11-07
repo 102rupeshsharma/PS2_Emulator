@@ -1,5 +1,20 @@
 # Release notes
 
+## 1.9.0 (versionCode 13), 2026-11-07: separate face buttons, free layout editing, theme fix
+
+- **△ ○ ✕ □ are four separate buttons:** each one can be moved, resized and faded on its own.
+  Layouts saved by older versions keep the buttons where the cluster was (and its opacity).
+- **Edit layout without boxes:** no more rectangles around every control. Drag a control itself
+  to move it; only the selected control shows a thin outline in its own shape.
+- **Controls may overlap:** moves and resizes are never refused or snapped back any more. Where
+  two controls overlap, the one drawn on top gets the touch.
+- **Light / black theme fix:** the soft shadows are now drawn with plain translucent strokes
+  instead of a blur filter (which is not drawn the same by every phone's GPU and could look like
+  hard boxes). There is a one-tap **☾ Dark / ☀ Light** button on both controllers' top bars, next to
+  the Settings switch. A rendering test checks that the screen really changes both ways.
+- README: the download link is only at the bottom now.
+- Tests: 309 (307 passed, 2 skipped). Not yet checked on the phone.
+
 ## 1.8.0 (versionCode 12), 2026-11-06: soft-UI controllers, light and black theme
 
 - **Soft UI ("neumorphic") buttons** on both controllers (Emulator and PC): every button has the

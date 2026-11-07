@@ -131,6 +131,7 @@ fun ControllerScreen(vm: MainViewModel) {
             SmallChipButton(if (showOverlay) "Hide" else "Live") { showOverlay = !showOverlay }
             SmallChipButton("Edit") { vm.setEditMode(true) }
             SmallChipButton("Settings") { vm.input.releaseAll(); showSettings = true }
+            SmallChipButton(if (neu.dark) "☀ Light" else "☾ Dark") { vm.setDarkControls(!neu.dark) }
             if (gyroActive) SmallChipButton("Recenter") { vm.gyroRecenter() }
         }
         if (!hid.isConnected) {
@@ -192,7 +193,11 @@ fun ControllerLayout(
             }
 
             DpadControl(input, epoch, Modifier.at(ControlId.DPAD).testTag("dpad"))
-            FaceButtons(input, epoch, Modifier.at(ControlId.FACE).testTag("face"))
+            // 1.9.0: four independent buttons (move, resize and overlap each one on its own)
+            ControlId.FACE_BUTTONS.forEachIndexed { i, id ->
+                val b = when (id) { ControlId.TRIANGLE -> ControllerButton.TRIANGLE; ControlId.CIRCLE -> ControllerButton.CIRCLE; ControlId.CROSS -> ControllerButton.CROSS; else -> ControllerButton.SQUARE }
+                DigitalButton(b, input, epoch, b.label, KeyShape.CIRCLE, fs(id, 0.3f), Modifier.at(id).testTag("btn_${b.name}"), faceMark = i)
+            }
             AnalogStick(Stick.LEFT, input, epoch, profile.left, Modifier.at(ControlId.LEFT_STICK).testTag("stick_left"))
             if (gyroActive) GyroStickIndicator(input, onGyroRecenter, Modifier.at(ControlId.RIGHT_STICK).testTag("gyro_indicator"))
             else AnalogStick(Stick.RIGHT, input, epoch, profile.right, Modifier.at(ControlId.RIGHT_STICK).testTag("stick_right"))
@@ -231,16 +236,20 @@ private fun LayoutEditor(vm: MainViewModel, profile: ControllerProfile, w: Float
     var extras by extrasState
     var selected by remember { mutableStateOf<ControlId?>(null) }
     var selectedExtra by remember { mutableStateOf<String?>(null) }
-    var message by remember { mutableStateOf<String?>("Drag a control to move it. Tap to select and resize.") }
+    var message by remember { mutableStateOf<String?>("Drag any control to move it (they may overlap). Tap one to resize it.") }
     val density = LocalDensity.current.density
 
     ControllerLayout(vm.input, 0, profile, draft, interactive = false, extras = extras)
 
-    for (id in ControlId.entries) {
+    // Invisible touch handles on top of each control: the control itself moves under the finger.
+    // Only the selected control gets a thin outline in its own shape (no boxes around everything).
+    for (id in ControlId.editable) {
         val rect = draft.getValue(id)
+        val round = id in ControlId.FACE_BUTTONS || id == ControlId.L3 || id == ControlId.R3 || id == ControlId.DPAD ||
+            id == ControlId.LEFT_STICK || id == ControlId.RIGHT_STICK
         Box(
             Modifier.place(rect)
-                .border(if (id == selected) 3.dp else 1.dp, if (id == selected) Palette.Info else Color.White.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
+                .then(if (id == selected) Modifier.border(2.dp, Palette.Info, if (round) CircleShape else RoundedCornerShape(30)) else Modifier)
                 .testTag("edit_${id.name}")
                 .pointerInput(id) { detectTapGestures { selected = id; selectedExtra = null } }
                 .pointerInput(id, draftState) {
@@ -253,14 +262,9 @@ private fun LayoutEditor(vm: MainViewModel, profile: ControllerProfile, w: Float
                             draft = draftState.value + (id to r.copy(cx = r.cx + amount.x / density, cy = r.cy + amount.y / density))
                         },
                         onDragEnd = {
-                            val moved = LayoutEngine.clampInside(draftState.value.getValue(id), w, h)
-                            val hits = LayoutEngine.collisions(draftState.value, id, moved)
-                            if (hits.isEmpty()) {
-                                draft = draftState.value + (id to moved); message = "${id.label} moved"
-                            } else {
-                                draft = draftState.value + (id to (start ?: moved))
-                                message = "${id.label} would overlap ${hits.joinToString { it.label }} - moved back"
-                            }
+                            // overlapping is allowed: only keep the control on screen
+                            draft = draftState.value + (id to LayoutEngine.clampInside(draftState.value.getValue(id), w, h))
+                            message = "${id.label} moved"
                         },
                         onDragCancel = { start?.let { draft = draftState.value + (id to it) } },
                     )
@@ -273,7 +277,7 @@ private fun LayoutEditor(vm: MainViewModel, profile: ControllerProfile, w: Float
         val r = extraRect(e, w, h, profile.appearance)
         Box(
             Modifier.place(r)
-                .border(if (e.id == selectedExtra) 3.dp else 1.dp, if (e.id == selectedExtra) Palette.Info else Color.White.copy(alpha = 0.7f), RoundedCornerShape(8.dp))
+                .then(if (e.id == selectedExtra) Modifier.border(2.dp, Palette.Info, RoundedCornerShape(30)) else Modifier)
                 .testTag("editx_${e.id}")
                 .pointerInput(e.id) { detectTapGestures { selectedExtra = e.id; selected = null } }
                 .pointerInput(e.id, extrasState) {
@@ -301,7 +305,8 @@ private fun LayoutEditor(vm: MainViewModel, profile: ControllerProfile, w: Float
         ) {
             Text("EDIT LAYOUT", color = Palette.Warn, fontSize = 11.sp, fontWeight = FontWeight.Bold)
             SmallChipButton("Save") {
-                val placements = draft.filter { (id, r) -> r != defaults.getValue(id) }
+                // the legacy face cluster is never saved: the four buttons carry their own placements
+                val placements = draft.filter { (id, r) -> id != ControlId.FACE && r != defaults.getValue(id) }
                     .mapValues { (id, r) -> LayoutEngine.toPlacement(r, defaults.getValue(id), w, h) }
                 vm.saveLayout(placements, extras)
                 vm.log.add("Layout saved (${placements.size} control(s) moved/resized, ${extras.size} added button(s))")
@@ -349,10 +354,7 @@ private fun LayoutEditor(vm: MainViewModel, profile: ControllerProfile, w: Float
                     onValueChange = { sc ->
                         val d = defaults.getValue(sel)
                         val cur = draft.getValue(sel)
-                        val resized = LayoutEngine.clampInside(cur.copy(w = d.w * sc, h = d.h * sc), w, h)
-                        val hits = LayoutEngine.collisions(draft, sel, resized)
-                        if (hits.isEmpty()) draft = draft + (sel to resized)
-                        else message = "Larger would overlap ${hits.joinToString { it.label }}"
+                        draft = draft + (sel to LayoutEngine.clampInside(cur.copy(w = d.w * sc, h = d.h * sc), w, h))
                     },
                 )
                 Text("Opacity ${(profile.appearance.opacityOf(sel) * 100).toInt()} %", color = Color.White, fontSize = 11.sp, modifier = Modifier.width(90.dp))

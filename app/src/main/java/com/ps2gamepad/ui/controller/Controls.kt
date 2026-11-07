@@ -84,6 +84,8 @@ fun DigitalButton(
     modifier: Modifier = Modifier,
     /** Which control is pressing (extra buttons use their own id so they combine with the built-in one). */
     source: String = ControllerInputManager.BASE_SOURCE,
+    /** 0..3 = draw the PlayStation symbol (triangle, circle, cross, square) instead of [label]. */
+    faceMark: Int = -1,
 ) {
     var pressed by remember(resetKey) { mutableStateOf(false) }
     val haptic = rememberHaptic()
@@ -113,8 +115,9 @@ fun DigitalButton(
                 }
             }
             neuPath(path, neu, pressed, d)
+            if (faceMark >= 0 && style.showLabels) drawFaceMark(faceMark, center, size.minDimension / 2 - inset, skin.label)
         }
-        if (style.showLabels) {
+        if (style.showLabels && faceMark < 0) {
             Text(label, color = if (pressed) skin.labelPressed else skin.label, fontSize = fontSize, fontWeight = FontWeight.Bold, maxLines = 1)
         }
     }
@@ -191,85 +194,21 @@ data class FaceGeometry(val offset: Float, val buttonRadius: Float, val hitRadiu
     }
 }
 
-/**
- * Triangle / Circle / Cross / Square as one cluster. Each finger presses the button(s) whose hit
- * circle contains it; neighbouring hit circles overlap slightly, so a thumb between two buttons
- * presses both (like rolling a thumb on a real pad), and sliding moves between buttons.
- */
-@Composable
-fun FaceButtons(input: ControllerInputManager, resetKey: Int, modifier: Modifier = Modifier) {
-    var pressedMask by remember(resetKey) { mutableIntStateOf(0) }
-    var area by remember { mutableStateOf(IntSize.Zero) }
-    val style = LocalControlStyle.current
-    val geo = remember(style.faceSpacing) { FaceGeometry.of(style.faceSpacing) }
-    val haptic = rememberHaptic()
-    val order = remember { listOf(ControllerButton.TRIANGLE, ControllerButton.CIRCLE, ControllerButton.CROSS, ControllerButton.SQUARE) }
-    val skin = LocalSkin.current
-    val neu = LocalNeu.current
-    val textMeasurer = rememberTextMeasurer()
-    Canvas(
-        modifier
-            .onSizeChanged { area = it }
-            .inputIfInteractive(resetKey) { pointers, t ->
-                val s = min(area.width, area.height).toFloat()
-                val centres = faceCentres(Offset(area.width / 2f, area.height / 2f), s, geo)
-                val hitR = s * geo.hitRadius
-                var mask = 0
-                for (p in pointers) for (i in 0 until 4) {
-                    val c = centres[i]
-                    if (hypot(p.position.x - c.x, p.position.y - c.y) <= hitR) mask = mask or (1 shl i)
-                }
-                input.reportPointers("FACE", pointers.size)
-                if (mask != pressedMask) {
-                    if ((mask and pressedMask.inv()) != 0) haptic()
-                    for (i in 0 until 4) {
-                        val was = (pressedMask and (1 shl i)) != 0
-                        val now = (mask and (1 shl i)) != 0
-                        if (was != now) input.setButton(order[i], now, t)
-                    }
-                    pressedMask = mask
-                }
-            }
-    ) {
-        val s = size.minDimension
-        val centres = faceCentres(center, s, geo)
-        val r = s * geo.buttonRadius
-        val colors = skin.faceColors // all = label colour (soft UI)
-        for (i in 0 until 4) {
-            val c = centres[i]
-            val on = (pressedMask and (1 shl i)) != 0
-            neuPath(circlePath(c, r * 0.94f), neu, on, (r * 0.13f).coerceIn(3f, 12f))
-            if (!style.showLabels && !on) continue
-            val markColor = colors[i]
-            if (skin.faceMarks == FaceMarks.LETTERS) {
-                val layout = textMeasurer.measure(
-                    skin.faceLetters.getOrElse(i) { "" },
-                    TextStyle(color = markColor, fontSize = (r * 0.95f).toSp(), fontWeight = FontWeight.Black),
-                )
-                drawText(layout, topLeft = Offset(c.x - layout.size.width / 2f, c.y - layout.size.height / 2f))
-                continue
-            }
-            val stroke = Stroke(width = r * 0.13f, cap = StrokeCap.Round)
-            val g = r * 0.46f
-            when (i) {
-                0 -> drawPath(Path().apply {
-                    moveTo(c.x, c.y - g); lineTo(c.x + g * 0.95f, c.y + g * 0.62f); lineTo(c.x - g * 0.95f, c.y + g * 0.62f); close()
-                }, markColor, style = stroke)
-                1 -> drawCircle(markColor, radius = g * 0.9f, center = c, style = stroke)
-                2 -> {
-                    drawLine(markColor, Offset(c.x - g * 0.8f, c.y - g * 0.8f), Offset(c.x + g * 0.8f, c.y + g * 0.8f), stroke.width, StrokeCap.Round)
-                    drawLine(markColor, Offset(c.x + g * 0.8f, c.y - g * 0.8f), Offset(c.x - g * 0.8f, c.y + g * 0.8f), stroke.width, StrokeCap.Round)
-                }
-                3 -> drawRect(markColor, topLeft = Offset(c.x - g * 0.75f, c.y - g * 0.75f), size = Size(g * 1.5f, g * 1.5f), style = stroke)
-            }
+/** PlayStation face symbol [i] (0 triangle, 1 circle, 2 cross, 3 square) on a button of radius [r]. */
+fun androidx.compose.ui.graphics.drawscope.DrawScope.drawFaceMark(i: Int, c: Offset, r: Float, color: Color) {
+    val stroke = Stroke(width = r * 0.13f, cap = StrokeCap.Round)
+    val g = r * 0.46f
+    when (i) {
+        0 -> drawPath(Path().apply {
+            moveTo(c.x, c.y - g); lineTo(c.x + g * 0.95f, c.y + g * 0.62f); lineTo(c.x - g * 0.95f, c.y + g * 0.62f); close()
+        }, color, style = stroke)
+        1 -> drawCircle(color, radius = g * 0.9f, center = c, style = stroke)
+        2 -> {
+            drawLine(color, Offset(c.x - g * 0.8f, c.y - g * 0.8f), Offset(c.x + g * 0.8f, c.y + g * 0.8f), stroke.width, StrokeCap.Round)
+            drawLine(color, Offset(c.x + g * 0.8f, c.y - g * 0.8f), Offset(c.x - g * 0.8f, c.y + g * 0.8f), stroke.width, StrokeCap.Round)
         }
+        3 -> drawRect(color, topLeft = Offset(c.x - g * 0.75f, c.y - g * 0.75f), size = Size(g * 1.5f, g * 1.5f), style = stroke)
     }
-}
-
-/** Triangle (top), Circle (right), Cross (bottom), Square (left). */
-private fun faceCentres(c: Offset, s: Float, geo: FaceGeometry): List<Offset> {
-    val d = s * geo.offset
-    return listOf(Offset(c.x, c.y - d), Offset(c.x + d, c.y), Offset(c.x, c.y + d), Offset(c.x - d, c.y))
 }
 
 /**

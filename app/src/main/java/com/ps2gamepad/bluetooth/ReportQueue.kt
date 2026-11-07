@@ -36,5 +36,7 @@ class ReportQueue(private val capacity: Int = 64) {
 
     fun poll(): PendingReport? = items.removeFirstOrNull()
 
+    fun peek(): PendingReport? = items.firstOrNull()
+
     fun clear() = items.clear()
 }

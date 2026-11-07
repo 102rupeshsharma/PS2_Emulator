@@ -46,11 +46,12 @@ class MainActivity : ComponentActivity() {
     /**
      * Battery saver while playing: the screen is the biggest power user (and heat source).
      *  - 60 Hz instead of 90/120 Hz: about half the display and GPU work, nothing visible changes.
-     *  - Dimmed: you look at the PC, not the phone. Undone as soon as you leave the controller.
+     *  - Brightness is NOT touched (2.1.0): the phone's own brightness control keeps working while
+     *    playing. The override is cleared in case an older version left one set.
      */
     private fun applyPowerSaving(on: Boolean) {
         val lp = window.attributes
-        lp.screenBrightness = if (on) SAVER_BRIGHTNESS else WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE
+        lp.screenBrightness = WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE
         lp.preferredDisplayModeId = if (on) lowRefreshModeId() else 0
         window.attributes = lp
     }
@@ -162,7 +163,5 @@ class MainActivity : ComponentActivity() {
 
     companion object {
         const val TAG = "BtGamepad"
-        /** Screen brightness while playing in battery saver (0..1). Buttons stay readable indoors. */
-        const val SAVER_BRIGHTNESS = 0.2f
     }
 }

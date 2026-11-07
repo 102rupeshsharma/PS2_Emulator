@@ -107,8 +107,7 @@ fun PcProfilesScreen(vm: MainViewModel) {
                         color = Palette.TextDim, fontSize = 10.sp)
                 }
                 Card {
-                    LabeledSwitch("Black theme (both controllers)", store.darkControls, "sw_pcDark") { vm.setDarkControls(it) }
-                    LabeledSwitch("Battery saver (dim 60 Hz screen, 125 Hz Bluetooth)", store.batterySaver, "sw_pcSaver") { vm.setBatterySaver(it) }
+                    LabeledSwitch("Battery saver (60 Hz screen, 125 Hz Bluetooth)", store.batterySaver, "sw_pcSaver") { vm.setBatterySaver(it) }
                 }
                 Card {
                     Text("Gyro mouse: ${pc.active.name}", color = Palette.TextDim, fontSize = 12.sp)

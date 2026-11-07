@@ -67,7 +67,7 @@ class PcModeViewModelTest {
 
     private fun TestScope.connect(pcInput: Boolean) {
         vm.onPermissionsChanged(true); vm.onForeground(); runCurrent()
-        if (pcInput) vm.setPcInputEnabled(true)
+        vm.setPcInputEnabled(pcInput) // default is ON since 2.1.0; set it explicitly
         vm.register(); runCurrent()
         hid.emit(HidEvent.AppStatusChanged(true)); hid.emit(HidEvent.ConnectionChanged(laptop, HidStateReducer.STATE_CONNECTED)); runCurrent()
     }
@@ -92,6 +92,27 @@ class PcModeViewModelTest {
         vm.chooseMode(GamingMode.PC)
         vm.pcPress(control("a"))
         assertTrue(hid.inputReports.isEmpty())
+    }
+
+    @Test fun registrationWaitsForTheSavedPcInputSetting() = runTest(dispatcher) {
+        // Regression (2.1.0, seen on a Samsung phone): the app registered before the saved settings
+        // were loaded, i.e. with the DEFAULT PC-input value instead of the saved one. Windows then
+        // showed "Online" but keyboard/mouse/gyro-mouse reports were refused.
+        val gate = kotlinx.coroutines.CompletableDeferred<Unit>()
+        val saved = com.ps2gamepad.settings.ProfileCodec.encode(com.ps2gamepad.settings.DefaultProfiles.store().copy(pcInputEnabled = false))
+        val storage = object : com.ps2gamepad.settings.TextStorage {
+            override suspend fun read(): String { gate.await(); return saved }
+            override suspend fun write(text: String) {}
+        }
+        val hid2 = FakeHid()
+        val scope = kotlinx.coroutines.CoroutineScope(dispatcher)
+        val vm2 = MainViewModel(hid2, MutableStateFlow(BluetoothState.ENABLED), { emptyList() }, DiagnosticLog(), emptyList(), { now },
+            settingsRepository = com.ps2gamepad.settings.SettingsRepository(storage, scope), motionSource = motion, pcTickContext = dispatcher)
+        vm2.onPermissionsChanged(true); vm2.onForeground(); vm2.autoStart(); runCurrent()
+        assertEquals("no registration before the saved settings are known", 0, hid2.registerCalls)
+        gate.complete(Unit); runCurrent()
+        assertEquals(1, hid2.registerCalls)
+        assertFalse("registered with the SAVED value (gamepad only), not the default", hid2.lastComposite)
     }
 
     @Test fun enablingPcInputReRegistersWithCompositeDescriptor() = runTest(dispatcher) {

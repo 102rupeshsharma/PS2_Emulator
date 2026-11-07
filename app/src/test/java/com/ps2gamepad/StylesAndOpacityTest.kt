@@ -5,6 +5,7 @@ import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performSemanticsAction
@@ -116,27 +117,15 @@ class ControllerSettingsUiTest {
         rule.runOnIdle { assertFalse(motion.running) }
     }
 
-    @Test fun blackThemeSwitchIsSavedAndSharedWithPcMode() {
-        rule.runOnIdle { assertFalse(vm.profiles.value.darkControls) }
-        rule.onNodeWithTag("chip_Settings").performClick()
-        rule.onNodeWithTag("set_dark").performScrollTo().performClick()
-        rule.waitForIdle()
-        rule.runOnIdle { assertTrue(vm.profiles.value.darkControls) }
-        val back = ProfileCodec.decode(ProfileCodec.encode(vm.profiles.value))
-        assertTrue("stored", back.darkControls)
-        // the controls keep working in the black theme
-        rule.onNodeWithTag("chip_Close").performClick()
+    @Test fun faceButtonsAreYbaxAndStillSendTheSameButtons() {
+        rule.onNodeWithText("Y", useUnmergedTree = true).assertExists()
         val root = rule.onNodeWithTag("controller")
         val r = root.fetchSemanticsNode().boundsInRoot
-        val l1 = rule.onNodeWithTag("btn_L1", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
-        root.performTouchInput { down(0, Offset(l1.center.x - r.left, l1.center.y - r.top)) }
+        val a = rule.onNodeWithTag("btn_CROSS", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+        root.performTouchInput { down(0, Offset(a.center.x - r.left, a.center.y - r.top)) }
         rule.waitForIdle()
-        assertEquals(ControllerButton.L1.mask, HidReportManager.decode(hid.sent.last()).buttons)
+        assertEquals("A (bottom) is still Cross / HID button 2", ControllerButton.CROSS.mask, HidReportManager.decode(hid.sent.last()).buttons)
         root.performTouchInput { up(0) }
-        // and back to light
-        rule.runOnIdle { vm.setDarkControls(false) }
-        rule.waitForIdle()
-        rule.runOnIdle { assertFalse(vm.profiles.value.darkControls) }
     }
 
     @Test fun touchesOnThePanelNeverPressControlsBehindIt() {

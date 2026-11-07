@@ -217,14 +217,14 @@ data class ProfileStore(
     /** PC Mode data: completely separate from the emulator profiles above. */
     val pc: com.ps2gamepad.pc.PcStore = com.ps2gamepad.pc.PcStore(),
     /** PC input (keyboard + mouse HID) enabled: registers the composite descriptor (needs one re-pair). */
-    val pcInputEnabled: Boolean = false,
+    val pcInputEnabled: Boolean = true,
     /** Last mode chosen on the mode selection screen. */
     val lastMode: GamingMode? = null,
     /** Controller theme for both controllers: false = light soft UI (default), true = black. */
     val darkControls: Boolean = false,
     /**
      * Battery saver while a controller is shown (default ON): 60 Hz screen instead of 90/120 Hz,
-     * dimmed screen (you look at the PC, not the phone) and 125 Hz Bluetooth reports.
+     * and 125 Hz Bluetooth reports. Brightness is left to the phone (2.1.0).
      */
     val batterySaver: Boolean = true,
 ) {

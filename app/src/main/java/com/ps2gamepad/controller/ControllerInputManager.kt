@@ -86,8 +86,39 @@ class ControllerInputManager(
         }
     }
 
-    fun setDpad(dpad: Dpad, eventUptimeMs: Long = clock()) =
-        mutate(eventUptimeMs) { it.copy(dpad = dpad) }
+    /**
+     * A combo button's current step: exactly [buttons] and [dpad] held by [source], everything else
+     * it held is released. One state change, so all buttons of a step reach the PC in ONE report.
+     */
+    fun setComboFrom(source: String, buttons: Set<ControllerButton>, dpad: Dpad, eventUptimeMs: Long = clock()) {
+        synchronized(lock) {
+            for (b in ControllerButton.entries) {
+                val set = holders.getOrPut(b) { HashSet() }
+                if (b in buttons) set.add(source) else set.remove(source)
+            }
+            if (dpad.isNeutral) dpadHolders.remove(source) else dpadHolders[source] = dpad
+            val effective = StickMath.combine(dpadHolders.values)
+            mutate(eventUptimeMs) { st ->
+                var n = st
+                for (b in ControllerButton.entries) n = n.withButton(b, holders[b]?.isNotEmpty() == true)
+                n.copy(dpad = effective)
+            }
+        }
+    }
+
+    /** D-pad directions held per control (the D-pad itself and combo buttons); combined like fingers. */
+    private val dpadHolders = HashMap<String, Dpad>()
+
+    fun setDpad(dpad: Dpad, eventUptimeMs: Long = clock()) = setDpadFrom(BASE_SOURCE, dpad, eventUptimeMs)
+
+    /** Direction held by one control; the effective D-pad combines all controls. */
+    fun setDpadFrom(source: String, dpad: Dpad, eventUptimeMs: Long = clock()) {
+        synchronized(lock) {
+            if (dpad.isNeutral) dpadHolders.remove(source) else dpadHolders[source] = dpad
+            val effective = StickMath.combine(dpadHolders.values)
+            mutate(eventUptimeMs) { it.copy(dpad = effective) }
+        }
+    }
 
     /** [vector] components in [-1, 1], already through the dead zone. */
     fun setStick(stick: Stick, vector: StickVector, eventUptimeMs: Long = clock()) =
@@ -98,6 +129,7 @@ class ControllerInputManager(
         synchronized(lock) {
             pointerCounts.clear()
             holders.clear()
+            dpadHolders.clear()
             _activePointers.value = 0
             _state.value = GamepadState.NEUTRAL
             _resetEpoch.value = _resetEpoch.value + 1

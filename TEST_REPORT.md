@@ -158,28 +158,10 @@ Also check: PCSX2 detects the device (SDL) ⏳ · all bindings ⏳ · reconnect 
 | 60 min | | | | | | | | | ⏳ |
 | 2 h (optional) | | | | | | | | | ⏳ |
 
-## 4.7 Gyro right stick (1.3.0) ⏳
+## 4.7 Gyro right stick (1.3.0): removed in 3.0.0
 
-Setup: Gyro tile → switch ON → hold the phone as you play → **Recenter**. Keep `joy.cpl` → Properties
-open on the laptop (the right stick shows as **Z axis / Z rotation**).
-
-| # | Test | Expected | Result |
-|---|---|---|---|
-| G1 | Neutral: calibrate, hold still | Gyro screen X=0 Y=0; joy.cpl Z/Z-rotation centred | ⏳ |
-| G2 | Tilt right / left / top edge away / top edge towards you | Only the matching axis moves; away = stick up | ⏳ |
-| G3 | 4 diagonals | Both axes move together; direction label matches | ⏳ |
-| G4 | Slowly circle the tilt through 360° (also 15°, 30°, 45°, 60°) | Circle indicator moves smoothly round, no jumps or snapping | ⏳ |
-| G5 | Slight / moderate / maximum tilt | Magnitude grows smoothly up to 1.00 | ⏳ |
-| G6 | Hold a tilt 10 s in a game | Camera keeps turning for the whole 10 s | ⏳ |
-| G7 | Return to the calibrated hold | Both axes back to 0 | ⏳ |
-| G8 | Rest the phone on a table 1 min; small hand tremor | Stays at 0 (dead zone), no creep | ⏳ |
-| G9 | joy.cpl: all directions, diagonals, intermediate positions | Z / Z-rotation follow the phone | ⏳ |
-| G10 | Regression: left stick, all buttons, D-pad, connection, with the gyro on | Unchanged; left stick + gyro at the same time | ⏳ |
-| G11 | Notification shade / home / lock while tilted | Right stick centres; sensors stop; back = resumes | ⏳ |
-| G12 | Settings: sensitivity, max tilt, dead zone, smoothing, invert X/Y; Calibrate (1.5 s) | Each has a visible effect; calibration kept after app restart | ⏳ |
-
-Automated (simulated sensors, MOCK Bluetooth): GyroTiltTest (11), GyroFusionTest (5), GyroEngineTest (6),
-GyroViewModelTest (10), GyroUiTest (2): all passed.
+The gyro right stick was removed in 3.0.0 (the app is now a simple Bluetooth controller), so these
+tests no longer apply.
 
 ## 4.8 Loadouts (1.4.0) ⏳
 
@@ -187,8 +169,8 @@ GyroViewModelTest (10), GyroUiTest (2): all passed.
 |---|---|---|---|
 | L1 | Open Controller | "Choose a loadout" appears every time | ⏳ |
 | L2 | New loadout "GTA" → arrange buttons → Save | Controller opens in Edit; layout saved in "GTA" | ⏳ |
-| L3 | Create "God of War" with a different layout/style/gyro | Each loadout shows its own preview | ⏳ |
-| L4 | Switch between them via the picker | Layout, style, opacity, gyro change accordingly | ⏳ |
+| L3 | Create "God of War" with a different layout, button style and combos | Each loadout shows its own preview | ⏳ |
+| L4 | Switch between them via the picker | Layout, button style, opacity and combos change accordingly | ⏳ |
 | L5 | Force-stop the app / reboot the phone | All loadouts and "LAST USED" kept | ⏳ |
 | L6 | Create 5, try a 6th | New card hidden; delete one → can create again | ⏳ |
 | L7 | PCSX2 with each loadout | Same bindings work (loadouts never change buttons) | ⏳ |
@@ -196,26 +178,26 @@ GyroViewModelTest (10), GyroUiTest (2): all passed.
 Automated: LoadoutLimitTest (4), LoadoutViewModelTest (4, including per-loadout settings after a
 simulated restart), LoadoutUiTest (4): all passed.
 
-## 4.9 PC Gaming Mode (1.5.0): final status
+## 4.9 PC Gaming Mode (1.5.0): removed in 3.0.0
 
-Automated (simulated Bluetooth + simulated sensors), all PASSED: PcDescriptorTest (3), PcReportsTest (3),
-PcInputEngineTest (9), GyroMouseTest (5), PcProfilesTest (8), PcModeViewModelTest (9), PcModeUiTest (6).
-Full suite: **299 tests, 297 passed, 0 failed, 2 skipped**; lint clean; release build OK.
+PC Gaming Mode (Bluetooth keyboard + mouse, gyro mouse) was removed in 3.0.0. The phone now
+registers only the gamepad descriptor, so these tests no longer apply.
 
-| Area | Check | Status |
-|---|---|---|
-| A Emulator regression | Emulator Mode opens (via mode selection), layout/mappings unchanged, buttons, sticks, D-pad, multi-touch | PASSED (automated UI tests) / NOT TESTED on phone |
-| A | Bluetooth connection, reconnection, earbuds simultaneously | NOT TESTED after this change (unchanged code path when PC input is off) |
-| A | Emulator sends no keyboard/mouse reports; gamepad report byte-identical in both descriptors | PASSED (automated) |
-| B PC UI | Opens, default controls render, touch, edit mode, custom add/rename/remap/delete, resize, move | PASSED (automated UI) / NOT TESTED on phone |
-| B | Layout persists after restart | PASSED (codec + store tests) / NOT TESTED on phone |
-| C Keyboard | W/A/S/D, Space, Shift, Ctrl, Esc, custom keys, Ctrl+E, simultaneous keys, release, no stuck keys after disconnect | PASSED (report-level, mocked) / **NOT TESTED on Windows** |
-| D Gyro | Init, 4 directions, sensitivity, dead zone, calibration, recenter, no drift when still, disable, sensors stop when leaving | PASSED (simulated sensors) / NOT TESTED on phone |
-| E Mouse | Left/right/middle, wheel, hold, release, move + click together, no stuck buttons | PASSED (report-level, mocked) / **NOT TESTED on Windows** |
-| F Profiles | Create, rename, edit, duplicate, delete (confirm), switch, restore (confirm), persist, emulator data untouched | PASSED (automated) |
-| G Real PC games | Keyboard/mouse game, custom-mapping game | **NOT TESTED** (no hardware run yet) |
-| G | XInput game | **BLOCKED**: XInput is not implemented (keyboard/mouse only; documented) |
-| Windows | Composite descriptor accepted (keyboard + mouse devices appear after re-pair) | **NOT TESTED** (first thing to verify) |
+## 4.10 Button styles and combo buttons (3.0.0) ⏳
+
+| # | Test | Expected | Result |
+|---|---|---|---|
+| S1 | Settings → Button style: Real, Simple, Outline | Look changes at once; background stays black | ⏳ |
+| S2 | Settings → Face buttons: Y B A X / △ ○ ✕ □ | Labels change; joy.cpl shows the same button numbers | ⏳ |
+| S3 | PCSX2 after switching styles/labels | Same bindings still work | ⏳ |
+| C1 | Edit → + Combo → L1+R1 → Save, hold it | joy.cpl shows buttons 5 and 6 together; released on lift | ⏳ |
+| C2 | Combo ↓ ↘ → + X (3 steps), tap it in a fighting game | The move comes out; nothing stays held | ⏳ |
+| C3 | Combo that repeats a button (X, X) | The game sees two separate presses | ⏳ |
+| C4 | Hold the real L1 and tap a combo with L1 | L1 stays held after the combo ends | ⏳ |
+
+Automated: ComboModelTest (4), ComboButtonUiTest (3), ControllerSettingsUiTest (style/label
+choices, every style still sends the same buttons), black-background pixel test in every style:
+all passed.
 
 ## 5. Final acceptance checklist
 

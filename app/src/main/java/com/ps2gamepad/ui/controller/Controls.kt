@@ -41,6 +41,15 @@ import com.ps2gamepad.model.Dpad
 import com.ps2gamepad.model.Hat
 import com.ps2gamepad.model.Stick
 import com.ps2gamepad.model.StickSettings
+import com.ps2gamepad.model.ButtonStyle
+import com.ps2gamepad.model.ComboStep
+import com.ps2gamepad.model.ExtraButton
+import com.ps2gamepad.model.FaceLabels
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlin.math.hypot
 import kotlin.math.min
 
@@ -51,6 +60,8 @@ data class ControlStyle(
     val faceSpacing: Float = 1f,
     /** False in the layout editor and in previews: the control draws but never touches HID state. */
     val interactive: Boolean = true,
+    val buttonStyle: ButtonStyle = ButtonStyle.REAL,
+    val faceLabels: FaceLabels = FaceLabels.XBOX,
 )
 
 val LocalControlStyle = compositionLocalOf { ControlStyle() }
@@ -84,7 +95,9 @@ fun DigitalButton(
     modifier: Modifier = Modifier,
     /** Which control is pressing (extra buttons use their own id so they combine with the built-in one). */
     source: String = ControllerInputManager.BASE_SOURCE,
-    /** Face buttons: coloured ring + label (Y yellow, B red, A green, X blue). */
+    /** 0..3 = face button position (top, right, bottom, left): coloured Y/B/A/X or PlayStation symbol. */
+    faceIndex: Int = -1,
+    /** Ring colour override (combo buttons). */
     accent: Color? = null,
 ) {
     var pressed by remember(resetKey) { mutableStateOf(false) }
@@ -92,6 +105,9 @@ fun DigitalButton(
     val style = LocalControlStyle.current
     val skin = LocalSkin.current
     val neu = LocalNeu.current
+    val faceColor = if (faceIndex >= 0) FaceColors.color(style.faceLabels, faceIndex) else null
+    // REAL keys stay neutral with a coloured symbol, like a physical pad; the other styles colour the ring
+    val ringColor = accent ?: faceColor?.takeIf { style.buttonStyle != ButtonStyle.REAL }
     Box(
         modifier.inputIfInteractive(resetKey) { pointers, t ->
             val now = pointers.isNotEmpty()
@@ -114,10 +130,14 @@ fun DigitalButton(
                     roundRectPath(Offset(inset, inset), sz, if (shape == KeyShape.PILL) sz.height / 2 else sz.height * 0.3f)
                 }
             }
-            neuPath(path, neu, pressed, d, accent = accent)
+            neuPath(path, neu, pressed, d, accent = ringColor, style = style.buttonStyle)
+            if (style.showLabels && faceIndex >= 0 && style.faceLabels == FaceLabels.PLAYSTATION) {
+                drawFaceMark(faceIndex, center, size.minDimension / 2 - inset, faceColor!!)
+            }
         }
-        if (style.showLabels) {
-            Text(label, color = accent ?: if (pressed) skin.labelPressed else skin.label, fontSize = fontSize, fontWeight = FontWeight.Bold, maxLines = 1)
+        if (style.showLabels && !(faceIndex >= 0 && style.faceLabels == FaceLabels.PLAYSTATION)) {
+            val text = if (faceIndex >= 0) FaceColors.text(style.faceLabels, faceIndex) else label
+            Text(text, color = faceColor ?: if (pressed) skin.labelPressed else skin.label, fontSize = fontSize, fontWeight = FontWeight.Bold, maxLines = 1)
         }
     }
 }
@@ -132,6 +152,7 @@ fun DpadControl(input: ControllerInputManager, resetKey: Int, modifier: Modifier
     var area by remember { mutableStateOf(IntSize.Zero) }
     val haptic = rememberHaptic()
     val labels = LocalControlStyle.current.showLabels
+    val buttonStyle = LocalControlStyle.current.buttonStyle
     val skin = LocalSkin.current
     val neu = LocalNeu.current
     Canvas(
@@ -152,14 +173,14 @@ fun DpadControl(input: ControllerInputManager, resetKey: Int, modifier: Modifier
         val s = size.minDimension
         val c = center
         val depth = (s * 0.03f).coerceIn(2f, 8f)
-        // base plate
-        drawCircle(neu.key.copy(alpha = 0.55f), radius = s * 0.48f, center = c)
+        // base plate (outline style: just a faint ring, nothing else lit)
+        if (buttonStyle != ButtonStyle.OUTLINE) drawCircle(neu.key.copy(alpha = 0.55f), radius = s * 0.48f, center = c)
         drawCircle(neu.ring.copy(alpha = 0.35f), radius = s * 0.48f, center = c, style = Stroke(depth * 0.5f))
         val off = s * 0.29f
         val r = s * 0.155f
         fun dir(dx: Float, dy: Float, angleDeg: Float, active: Boolean) {
             val bc = Offset(c.x + dx * off, c.y + dy * off)
-            neuPath(circlePath(bc, r), neu, active, depth)
+            neuPath(circlePath(bc, r), neu, active, depth, style = buttonStyle)
             if (labels) rotate(angleDeg, bc) {
                 val g = r * 0.42f
                 val chevron = Path().apply { moveTo(bc.x - g, bc.y + g * 0.45f); lineTo(bc.x, bc.y - g * 0.55f); lineTo(bc.x + g, bc.y + g * 0.45f) }
@@ -232,6 +253,7 @@ fun AnalogStick(
     var knob by remember(resetKey) { mutableStateOf(Offset.Zero) } // displacement from origin, px
     var last by remember(resetKey) { mutableStateOf(StickVector.ZERO) }
     val neu = LocalNeu.current
+    val buttonStyle = LocalControlStyle.current.buttonStyle
 
     fun fixedCentre(travel: Float) = Offset(
         area.width / 2f + settings.centerOffsetX * travel,
@@ -279,21 +301,127 @@ fun AnalogStick(
         val s = size.minDimension
         val travel = s * STICK_TRAVEL
         val c = origin ?: if (settings.floating) center else fixedCentre(travel)
-        drawNeuStick(neu, c, travel, s, knob, owner != null, settings.deadZone)
+        drawNeuStick(neu, c, travel, s, knob, owner != null, settings.deadZone, buttonStyle)
     }
 }
 
-/** Stick drawn in soft UI: a pushed-in well and a raised knob (shared by the gyro indicator). */
+/** Stick: a well and a knob, in the chosen button style. */
 fun androidx.compose.ui.graphics.drawscope.DrawScope.drawNeuStick(
     neu: NeuTheme, c: Offset, travel: Float, s: Float, knob: Offset, held: Boolean, deadZone: Float = 0f,
+    style: ButtonStyle = ButtonStyle.SIMPLE,
 ) {
     val depth = (s * 0.03f).coerceIn(2f, 8f)
-    neuPath(circlePath(c, travel + s * 0.07f), neu, pressed = false, depth = depth, fill = neu.key.copy(alpha = 0.6f))
-    drawCircle(neu.ring.copy(alpha = 0.25f), radius = travel * 0.62f, center = c, style = Stroke(s * 0.006f))
-    if (deadZone > 0f) drawCircle(neu.labelDim.copy(alpha = 0.25f), radius = travel * deadZone, center = c, style = Stroke(s * 0.006f))
+    val wellR = travel + s * 0.07f
     val kr = s * 0.17f
-    neuPath(circlePath(c + knob, kr), neu, pressed = held, depth = depth, fill = Color(0xFF262A32))
-    drawCircle(neu.ring.copy(alpha = 0.5f), radius = kr * 0.6f, center = c + knob, style = Stroke(s * 0.008f))
+    val k = c + knob
+    when (style) {
+        ButtonStyle.REAL -> {
+            // recessed well: dark centre, lighter lip
+            drawCircle(Brush.radialGradient(listOf(Color(0xFF07080A), Color(0xFF202329)), center = c, radius = wellR), radius = wellR, center = c)
+            drawCircle(Color.White.copy(alpha = 0.10f), radius = wellR, center = c, style = Stroke(depth * 0.5f))
+            // domed knob lit from the top-left, with grip rings
+            drawCircle(Color.Black.copy(alpha = 0.6f), radius = kr * 1.06f, center = k + Offset(0f, depth))
+            drawCircle(Brush.radialGradient(listOf(Color(0xFF5A606C), Color(0xFF1C1F25)), center = k - Offset(kr * 0.35f, kr * 0.35f), radius = kr * 1.5f), radius = kr, center = k)
+            drawCircle(Color.Black.copy(alpha = 0.45f), radius = kr * 0.72f, center = k, style = Stroke(s * 0.01f))
+            drawCircle(Color.White.copy(alpha = 0.10f), radius = kr * 0.5f, center = k, style = Stroke(s * 0.006f))
+            if (held) drawCircle(Color.White.copy(alpha = 0.10f), radius = kr, center = k)
+        }
+        ButtonStyle.SIMPLE -> {
+            neuPath(circlePath(c, wellR), neu, pressed = false, depth = depth, fill = neu.key.copy(alpha = 0.6f))
+            drawCircle(neu.ring.copy(alpha = 0.25f), radius = travel * 0.62f, center = c, style = Stroke(s * 0.006f))
+            neuPath(circlePath(k, kr), neu, pressed = held, depth = depth, fill = Color(0xFF262A32))
+            drawCircle(neu.ring.copy(alpha = 0.5f), radius = kr * 0.6f, center = k, style = Stroke(s * 0.008f))
+        }
+        ButtonStyle.OUTLINE -> {
+            drawCircle(neu.ring.copy(alpha = 0.55f), radius = wellR, center = c, style = Stroke(depth * 0.6f))
+            neuPath(circlePath(k, kr), neu, pressed = held, depth = depth, style = ButtonStyle.OUTLINE)
+        }
+    }
+    if (deadZone > 0f && style != ButtonStyle.OUTLINE) {
+        drawCircle(neu.labelDim.copy(alpha = 0.25f), radius = travel * deadZone, center = c, style = Stroke(s * 0.006f))
+    }
 }
+
+/**
+ * A combo button made in the layout editor ([ExtraButton] with steps).
+ *  - One step: all its buttons (and direction) are held together while the finger is down.
+ *  - Several steps: each tap plays the steps in order, each held [ExtraButton.stepMs]. A step that
+ *    repeats a button of the previous one gets a short release first, so the PC sees a new press.
+ * The combo releases everything it holds when the screen changes or inputs are reset.
+ */
+@Composable
+fun ComboButton(
+    combo: ExtraButton,
+    input: ControllerInputManager,
+    resetKey: Int,
+    label: String,
+    fontSize: TextUnit,
+    modifier: Modifier = Modifier,
+) {
+    var pressed by remember(resetKey) { mutableStateOf(false) }
+    var playing by remember(resetKey) { mutableStateOf(false) }
+    val haptic = rememberHaptic()
+    val style = LocalControlStyle.current
+    val neu = LocalNeu.current
+    val scope = rememberCoroutineScope()
+    val source = "combo_${combo.id}"
+    val job = remember(resetKey) { arrayOfNulls<Job>(1) }
+    DisposableEffect(resetKey, combo) {
+        onDispose {
+            job[0]?.cancel()
+            if (style.interactive) input.setComboFrom(source, emptySet(), Dpad.NEUTRAL)
+        }
+    }
+    fun hold(step: ComboStep?) = input.setComboFrom(source, step?.buttons ?: emptySet(), step?.let { Dpad.of(it.hat) } ?: Dpad.NEUTRAL)
+    Box(
+        modifier.inputIfInteractive(resetKey) { pointers, _ ->
+            val now = pointers.isNotEmpty()
+            input.reportPointers(source, pointers.size)
+            if (now == pressed) return@inputIfInteractive
+            pressed = now
+            if (combo.steps.isEmpty()) return@inputIfInteractive
+            if (!combo.isSequence) {
+                hold(if (now) combo.steps.first() else null)
+                if (now) haptic()
+            } else if (now) {
+                haptic()
+                job[0]?.cancel()
+                job[0] = scope.launch {
+                    playing = true
+                    try {
+                        val gap = (combo.stepMs / 3).coerceAtLeast(MIN_COMBO_GAP_MS).toLong()
+                        combo.steps.forEachIndexed { i, step ->
+                            val prev = combo.steps.getOrNull(i - 1)
+                            if (prev != null && (prev.buttons.any { it in step.buttons } || (prev.hat == step.hat && step.hat != Hat.NEUTRAL))) {
+                                hold(null); delay(gap) // release so the repeated button counts as a new press
+                            }
+                            hold(step)
+                            delay(combo.stepMs.toLong())
+                        }
+                    } finally {
+                        hold(null)
+                        playing = false
+                    }
+                }
+            }
+        },
+        contentAlignment = Alignment.Center,
+    ) {
+        Canvas(Modifier.fillMaxSize()) {
+            val d = neuDepth(size)
+            val inset = d * 0.8f
+            val sz = Size(size.width - 2 * inset, size.height - 2 * inset)
+            neuPath(roundRectPath(Offset(inset, inset), sz, sz.height * 0.3f), neu, pressed || playing, d, accent = COMBO_COLOR, style = style.buttonStyle)
+        }
+        if (style.showLabels) {
+            Text(label, color = if (style.buttonStyle == ButtonStyle.REAL) COMBO_COLOR else neu.label, fontSize = fontSize,
+                fontWeight = FontWeight.Bold, maxLines = 1)
+        }
+    }
+}
+
+/** Ring colour of combo buttons (so they stand out from normal buttons). */
+val COMBO_COLOR = Color(0xFFB794F6)
+private const val MIN_COMBO_GAP_MS = 20
 
 const val STICK_TRAVEL = 0.27f // knob travel radius, fraction of the stick area

@@ -59,6 +59,10 @@ import com.ps2gamepad.model.ControllerBackground
 import com.ps2gamepad.model.ControllerButton
 import com.ps2gamepad.model.ControllerProfile
 import com.ps2gamepad.model.ExtraButton
+import com.ps2gamepad.model.ButtonStyle
+import com.ps2gamepad.model.ComboStep
+import com.ps2gamepad.model.FaceLabels
+import com.ps2gamepad.model.Hat
 import com.ps2gamepad.model.Stick
 import com.ps2gamepad.ui.ConnectionChip
 import com.ps2gamepad.ui.MainViewModel
@@ -76,19 +80,36 @@ internal fun extraRect(e: ExtraButton, w: Float, h: Float, a: com.ps2gamepad.mod
     return LayoutEngine.clampInside(ControlRect(e.cx * w, e.cy * h, d * 1.3f, d), w, h)
 }
 
-/** Short label for a user-added button (PlayStation symbols for the face buttons). */
+/** Index 0..3 (top, right, bottom, left) of a face button, else -1. */
+internal fun faceIndexOf(b: ControllerButton) = when (b) {
+    ControllerButton.TRIANGLE -> 0; ControllerButton.CIRCLE -> 1; ControllerButton.CROSS -> 2; ControllerButton.SQUARE -> 3; else -> -1
+}
+
+/** Name of a button as shown on this controller (face buttons follow the chosen labels). */
+internal fun buttonName(b: ControllerButton, labels: FaceLabels): String {
+    val i = faceIndexOf(b)
+    return if (i >= 0) FaceColors.text(labels, i) else extraLabel(b)
+}
+
+/** Arrow for a D-pad direction. */
+internal fun hatArrow(h: Hat) = when (h) {
+    Hat.UP -> "\u2191"; Hat.UP_RIGHT -> "\u2197"; Hat.RIGHT -> "\u2192"; Hat.DOWN_RIGHT -> "\u2198"
+    Hat.DOWN -> "\u2193"; Hat.DOWN_LEFT -> "\u2199"; Hat.LEFT -> "\u2190"; Hat.UP_LEFT -> "\u2196"; Hat.NEUTRAL -> ""
+}
+
+/** Combo label, e.g. "L1+R1" (held together) or "\u2193 \u2198 \u2192+X" (sequence). */
+internal fun comboLabel(e: ExtraButton, labels: FaceLabels): String =
+    e.steps.joinToString(" ") { st ->
+        (listOf(hatArrow(st.hat)).filter { it.isNotEmpty() } + ControllerButton.entries.filter { it in st.buttons }.map { buttonName(it, labels) })
+            .joinToString("+")
+    }.ifEmpty { "Combo" }
+
+/** Short label for a user-added button. */
 internal fun extraLabel(b: ControllerButton) = when (b) {
     ControllerButton.TRIANGLE -> "Y"; ControllerButton.CIRCLE -> "B"
     ControllerButton.CROSS -> "A"; ControllerButton.SQUARE -> "X"
     ControllerButton.SELECT -> "SEL"; ControllerButton.START -> "START"
     else -> b.label
-}
-
-/** Face-button colour for an added button that presses a face button. */
-internal fun extraAccent(b: ControllerButton) = when (b) {
-    ControllerButton.TRIANGLE -> FaceColors.Y; ControllerButton.CIRCLE -> FaceColors.B
-    ControllerButton.CROSS -> FaceColors.A; ControllerButton.SQUARE -> FaceColors.X
-    else -> null
 }
 
 /** Full-screen landscape DualShock 2 style controller, plus the layout editor. */
@@ -102,7 +123,7 @@ fun ControllerScreen(vm: MainViewModel) {
     val hid by vm.hidState.collectAsStateWithLifecycle()
     val status = overallStatus(bt, perm, hid)
     val store by vm.profiles.collectAsStateWithLifecycle()
-    val neu = NeuThemes.of(store.darkControls)
+    val neu = NeuThemes.BLACK
     var showOverlay by remember { mutableStateOf(false) }
     var showSettings by remember { mutableStateOf(false) }
 
@@ -127,8 +148,7 @@ fun ControllerScreen(vm: MainViewModel) {
             return@BoxWithConstraints
         }
         val rects = remember(w, h, profile.appearance, profile.placements) { LayoutEngine.resolve(w, h, profile.appearance, profile.placements) }
-        val gyroActive by vm.gyroSending.collectAsStateWithLifecycle()
-        ControllerLayout(vm.input, epoch, profile, rects, interactive = true, gyroActive = gyroActive, onGyroRecenter = vm::gyroRecenter)
+        ControllerLayout(vm.input, epoch, profile, rects, interactive = true)
 
         Row(
             Modifier.align(Alignment.TopCenter).padding(top = 6.dp),
@@ -139,7 +159,6 @@ fun ControllerScreen(vm: MainViewModel) {
             SmallChipButton(if (showOverlay) "Hide" else "Live") { showOverlay = !showOverlay }
             SmallChipButton("Edit") { vm.setEditMode(true) }
             SmallChipButton("Settings") { vm.input.releaseAll(); showSettings = true }
-            if (gyroActive) SmallChipButton("Recenter") { vm.gyroRecenter() }
         }
         if (!hid.isConnected) {
             Text(
@@ -156,7 +175,7 @@ fun ControllerScreen(vm: MainViewModel) {
             )
         }
         if (showOverlay) LiveOverlay(vm, Modifier.align(Alignment.Center).width(260.dp))
-        if (showSettings) ControllerSettingsPanel(vm, profile, store.darkControls, Modifier.align(Alignment.Center)) { showSettings = false }
+        if (showSettings) ControllerSettingsPanel(vm, profile, store.batterySaver, Modifier.align(Alignment.Center)) { showSettings = false }
     }
     }
 }
@@ -172,18 +191,18 @@ fun ControllerLayout(
     profile: ControllerProfile,
     rects: Map<ControlId, ControlRect>,
     interactive: Boolean,
-    /** Gyro drives the right stick: show the live gyro indicator instead of the touch stick. */
-    gyroActive: Boolean = false,
-    onGyroRecenter: () -> Unit = {},
     /** User-added buttons (the layout editor passes its unsaved draft). */
     extras: List<ExtraButton> = profile.extraButtons,
 ) {
     val a = profile.appearance
     val neu = LocalNeu.current
     val skin = Skins.of(neu)
-    // 1.8.0: no controller body art, just the plain soft-UI background
+    // pure black background: nothing lit but the buttons
     NeuScreenBackground(neu, Modifier.fillMaxSize())
-    val style = ControlStyle(showLabels = a.showLabels, haptics = a.haptics && interactive, faceSpacing = a.buttonSpacing, interactive = interactive)
+    val style = ControlStyle(
+        showLabels = a.showLabels, haptics = a.haptics && interactive, faceSpacing = a.buttonSpacing, interactive = interactive,
+        buttonStyle = a.buttonStyle, faceLabels = a.faceLabels,
+    )
     CompositionLocalProvider(LocalControlStyle provides style, LocalSkin provides skin) {
         Box(Modifier.fillMaxSize().alpha(a.buttonOpacity)) {
             // place + per-control opacity
@@ -203,11 +222,10 @@ fun ControllerLayout(
             // 1.9.0: four independent buttons (move, resize and overlap each one on its own)
             ControlId.FACE_BUTTONS.forEachIndexed { i, id ->
                 val b = when (id) { ControlId.TRIANGLE -> ControllerButton.TRIANGLE; ControlId.CIRCLE -> ControllerButton.CIRCLE; ControlId.CROSS -> ControllerButton.CROSS; else -> ControllerButton.SQUARE }
-                DigitalButton(b, input, epoch, FaceColors.LETTERS[i], KeyShape.CIRCLE, fs(id, 0.42f), Modifier.at(id).testTag("btn_${b.name}"), accent = FaceColors.COLORS[i])
+                DigitalButton(b, input, epoch, b.label, KeyShape.CIRCLE, fs(id, 0.42f), Modifier.at(id).testTag("btn_${b.name}"), faceIndex = i)
             }
             AnalogStick(Stick.LEFT, input, epoch, profile.left, Modifier.at(ControlId.LEFT_STICK).testTag("stick_left"))
-            if (gyroActive) GyroStickIndicator(input, onGyroRecenter, Modifier.at(ControlId.RIGHT_STICK).testTag("gyro_indicator"))
-            else AnalogStick(Stick.RIGHT, input, epoch, profile.right, Modifier.at(ControlId.RIGHT_STICK).testTag("stick_right"))
+            AnalogStick(Stick.RIGHT, input, epoch, profile.right, Modifier.at(ControlId.RIGHT_STICK).testTag("stick_right"))
             DigitalButton(ControllerButton.L3, input, epoch, skin.labelL3, KeyShape.CIRCLE, fs(ControlId.L3, 0.3f), Modifier.at(ControlId.L3).testTag("btn_L3"))
             DigitalButton(ControllerButton.R3, input, epoch, skin.labelR3, KeyShape.CIRCLE, fs(ControlId.R3, 0.3f), Modifier.at(ControlId.R3).testTag("btn_R3"))
             DigitalButton(ControllerButton.SELECT, input, epoch, skin.labelSelect, KeyShape.PILL, fs(ControlId.SELECT, 0.34f), Modifier.at(ControlId.SELECT).testTag("btn_SELECT"))
@@ -217,10 +235,15 @@ fun ControllerLayout(
                 val ch = maxHeight.value
                 for (e in extras) {
                     val r = extraRect(e, cw, ch, a)
-                    DigitalButton(
-                        e.button, input, epoch, extraLabel(e.button), KeyShape.ROUNDED, (r.h * 0.34f).sp,
-                        Modifier.place(r).testTag("extra_${e.id}"), source = "extra_${e.id}", accent = extraAccent(e.button),
-                    )
+                    if (e.isCombo) {
+                        val label = comboLabel(e, a.faceLabels)
+                        ComboButton(e, input, epoch, label, (r.h * if (label.length > 6) 0.24f else 0.32f).sp, Modifier.place(r).testTag("extra_${e.id}"))
+                    } else {
+                        DigitalButton(
+                            e.button, input, epoch, extraLabel(e.button), KeyShape.ROUNDED, (r.h * 0.34f).sp,
+                            Modifier.place(r).testTag("extra_${e.id}"), source = "extra_${e.id}", faceIndex = faceIndexOf(e.button),
+                        )
+                    }
                 }
             }
         }
@@ -244,6 +267,7 @@ private fun LayoutEditor(vm: MainViewModel, profile: ControllerProfile, w: Float
     var selected by remember { mutableStateOf<ControlId?>(null) }
     var selectedExtra by remember { mutableStateOf<String?>(null) }
     var message by remember { mutableStateOf<String?>("Drag a control to move it (overlap is fine). Tap it, then drag the blue corner to resize.") }
+    var comboStep by remember { mutableStateOf(0) }
     val density = LocalDensity.current.density
 
     ControllerLayout(vm.input, 0, profile, draft, interactive = false, extras = extras)
@@ -282,10 +306,10 @@ private fun LayoutEditor(vm: MainViewModel, profile: ControllerProfile, w: Float
         Box(
             Modifier.place(r)
                 .testTag("editx_${e.id}")
-                .pointerInput(e.id) { detectTapGestures { selectedExtra = e.id; selected = null } }
+                .pointerInput(e.id) { detectTapGestures { selectedExtra = e.id; selected = null; comboStep = 0 } }
                 .pointerInput(e.id, extrasState) {
                     detectDragGestures(
-                        onDragStart = { selectedExtra = e.id; selected = null },
+                        onDragStart = { selectedExtra = e.id; selected = null; comboStep = 0 },
                         onDrag = { change, amount ->
                             change.consume()
                             extras = extrasState.value.map {
@@ -379,9 +403,20 @@ private fun LayoutEditor(vm: MainViewModel, profile: ControllerProfile, w: Float
                 selectedExtra = e.id; selected = null
                 message = "Button added: drag it into place, then choose what it presses"
             }
+            if (extras.size < ControllerProfile.MAX_EXTRA_BUTTONS) SmallChipButton("+ Combo") {
+                val e = ExtraButton(
+                    java.util.UUID.randomUUID().toString().take(6), ControllerButton.CROSS, 0.5f, 0.3f,
+                    steps = listOf(ComboStep(setOf(ControllerButton.L1, ControllerButton.R1))),
+                )
+                extras = extras + e
+                selectedExtra = e.id; selected = null; comboStep = 0
+                message = "Combo added: pick buttons. One step = pressed together, more steps = played in order"
+            }
         }
         val selX = extras.firstOrNull { it.id == selectedExtra }
-        if (selX != null) {
+        if (selX != null && selX.isCombo) {
+            ComboEditor(selX, profile.appearance.faceLabels, comboStep, onStep = { comboStep = it }) { f -> extras = extras.map { if (it.id == selX.id) f(it) else it } }
+        } else if (selX != null) {
             Column(
                 Modifier.padding(top = 4.dp).background(Color(0xE6000000), RoundedCornerShape(10.dp)).padding(horizontal = 10.dp, vertical = 4.dp).testTag("extraEditor"),
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -431,9 +466,9 @@ private fun LayoutEditor(vm: MainViewModel, profile: ControllerProfile, w: Float
 }
 
 @Composable
-private fun MapChip(text: String, on: Boolean, tag: String, onClick: () -> Unit) {
+private fun MapChip(text: String, on: Boolean, tag: String, fontSize: androidx.compose.ui.unit.TextUnit = 11.sp, onClick: () -> Unit) {
     Text(
-        text, color = Color.White, fontSize = 11.sp, fontWeight = if (on) FontWeight.Bold else FontWeight.Normal,
+        text, color = Color.White, fontSize = fontSize, fontWeight = if (on) FontWeight.Bold else FontWeight.Normal,
         modifier = Modifier.background(if (on) Palette.Info else Color(0xFF2A2F3A), RoundedCornerShape(50)).clickable(onClick = onClick)
             .padding(horizontal = 9.dp, vertical = 4.dp).testTag(tag),
     )
@@ -464,38 +499,16 @@ private fun LiveOverlay(vm: MainViewModel, modifier: Modifier) {
 }
 
 /**
- * Right stick when the gyro drives it: shows the value that is in the HID report (read in the
- * draw phase, so only this canvas redraws). Not a touch control: tap = recenter.
+ * Quick settings inside the controller: button style, face labels, battery saver, opacity and size.
+ * Changes apply live and are saved to the loadout in use. The panel takes all touches, so nothing
+ * behind it is pressed.
  */
 @Composable
-private fun GyroStickIndicator(input: ControllerInputManager, onRecenter: () -> Unit, modifier: Modifier) {
-    val state = input.state.collectAsStateWithLifecycle()
-    val neu = LocalNeu.current
-    Box(modifier.clickable(onClick = onRecenter), contentAlignment = Alignment.BottomCenter) {
-        Canvas(Modifier.fillMaxSize()) {
-            val s = size.minDimension
-            val travel = s * STICK_TRAVEL
-            val g = state.value
-            val k = Offset(g.rightX / 127f * travel, g.rightY / 127f * travel)
-            drawNeuStick(neu, center, travel, s, k, held = false)
-            drawCircle(neu.accent, radius = s * 0.025f, center = center + k) // red dot = gyro
-        }
-        Text("GYRO · tap to recenter", color = neu.label, fontSize = 9.sp, fontWeight = FontWeight.Bold)
-    }
-}
-
-/**
- * Quick settings inside the controller: opacity and size of all controls, and the gyro switch.
- * With the gyro ON the right joystick becomes the gyro automatically. Changes apply live and are
- * saved to the loadout in use. The panel takes all touches, so nothing behind it is pressed.
- */
-@Composable
-private fun ControllerSettingsPanel(vm: MainViewModel, profile: ControllerProfile, dark: Boolean, modifier: Modifier, onClose: () -> Unit) {
+private fun ControllerSettingsPanel(vm: MainViewModel, profile: ControllerProfile, saver: Boolean, modifier: Modifier, onClose: () -> Unit) {
     val a = profile.appearance
-    val gyroSending by vm.gyroSending.collectAsStateWithLifecycle()
     val neu = LocalNeu.current
     Column(
-        modifier.width(380.dp).padding(vertical = 40.dp)
+        modifier.width(400.dp).padding(vertical = 40.dp)
             .background(neu.panel, RoundedCornerShape(18.dp))
             .border(1.dp, neu.labelDim.copy(alpha = 0.4f), RoundedCornerShape(18.dp))
             .pointerInput(Unit) { awaitPointerEventScope { while (true) awaitPointerEvent().changes.forEach { it.consume() } } }
@@ -508,30 +521,20 @@ private fun ControllerSettingsPanel(vm: MainViewModel, profile: ControllerProfil
             Text("Controller settings", color = neu.text, fontSize = 17.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
             SmallChipButton("Close") { onClose() }
         }
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
-                Text("Gyro aiming", color = neu.text, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-                Text("ON: the right joystick becomes the gyro (tilt the phone to look around)", color = neu.textDim, fontSize = 11.sp)
-            }
-            androidx.compose.material3.Switch(
-                checked = profile.gyro.enabled,
-                onCheckedChange = { on -> vm.updateGyro { it.copy(enabled = on) } },
-                modifier = Modifier.testTag("set_gyro"),
-            )
+        Text("Button style", color = neu.text, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            for (st in ButtonStyle.entries) MapChip(st.label, a.buttonStyle == st, "style_${st.name}") { vm.updateAppearance { it.copy(buttonStyle = st) } }
         }
-        if (profile.gyro.enabled) {
-            Text(
-                if (gyroSending) "Hold the phone the way you play, then tap Recenter." else "Starting gyro…",
-                color = neu.textDim, fontSize = 11.sp,
-            )
-            SmallChipButton("Recenter gyro") { vm.gyroRecenter() }
+        Text(a.buttonStyle.hint, color = neu.textDim, fontSize = 11.sp)
+        Text("Face buttons", color = neu.text, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            for (fl in FaceLabels.entries) MapChip(fl.label, a.faceLabels == fl, "faces_${fl.name}") { vm.updateAppearance { it.copy(faceLabels = fl) } }
         }
-        val saver = vm.profiles.collectAsStateWithLifecycle().value.batterySaver
+        Text("Only the labels change: the buttons send the same signals, so emulator bindings stay.", color = neu.textDim, fontSize = 11.sp)
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Text("Battery saver", color = neu.text, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-                Text("ON: 60 Hz screen and 125 Hz Bluetooth while playing: less battery and heat. " +
-                    "Brightness stays yours (phone settings).", color = neu.textDim, fontSize = 11.sp)
+                Text("ON: 60 Hz screen and 125 Hz Bluetooth while playing. Brightness stays yours.", color = neu.textDim, fontSize = 11.sp)
             }
             androidx.compose.material3.Switch(checked = saver, onCheckedChange = { vm.setBatterySaver(it) }, modifier = Modifier.testTag("set_saver"))
         }
@@ -540,6 +543,56 @@ private fun ControllerSettingsPanel(vm: MainViewModel, profile: ControllerProfil
         SettingSlider("Joystick size", a.stickScale, 0.6f..1.6f, "set_stickSize") { v -> vm.updateAppearance { it.copy(stickScale = v) } }
         SmallChipButton("Reset size & opacity") {
             vm.updateAppearance { it.copy(buttonOpacity = 1f, buttonScale = 1f, stickScale = 1f) }
+        }
+    }
+}
+
+/**
+ * Combo editor (layout editor, combo selected). Each step = buttons pressed together plus an
+ * optional D-pad direction. One step: held together. Several: played in order, [ExtraButton.stepMs] each.
+ */
+@Composable
+private fun ComboEditor(
+    combo: ExtraButton, labels: FaceLabels, stepIndex: Int, onStep: (Int) -> Unit, change: ((ExtraButton) -> ExtraButton) -> Unit,
+) {
+    val i = stepIndex.coerceIn(0, (combo.steps.size - 1).coerceAtLeast(0))
+    val step = combo.steps.getOrNull(i) ?: ComboStep()
+    fun setStep(f: (ComboStep) -> ComboStep) = change { c -> c.copy(steps = c.steps.mapIndexed { k, st -> if (k == i) f(st) else st }) }
+    Column(
+        Modifier.padding(top = 4.dp).background(Color(0xEE000000), RoundedCornerShape(10.dp)).border(1.dp, COMBO_COLOR.copy(alpha = 0.6f), RoundedCornerShape(10.dp))
+            .padding(horizontal = 10.dp, vertical = 4.dp).testTag("comboEditor"),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text(
+            "Combo: ${comboLabel(combo, labels)}  \u00B7  " + if (combo.isSequence) "plays ${combo.steps.size} steps in order" else "pressed together",
+            color = COMBO_COLOR, fontSize = 11.sp, fontWeight = FontWeight.Bold,
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.padding(top = 3.dp)) {
+            combo.steps.indices.forEach { k -> MapChip("Step ${k + 1}", k == i, "combo_step_$k") { onStep(k) } }
+            if (combo.steps.size < ExtraButton.MAX_STEPS) MapChip("+ Step", false, "combo_addStep") {
+                change { it.copy(steps = it.steps + ComboStep()) }; onStep(combo.steps.size)
+            }
+            if (combo.steps.size > 1) MapChip("Remove step", false, "combo_removeStep") {
+                change { c -> c.copy(steps = c.steps.filterIndexed { k, _ -> k != i }) }; onStep((i - 1).coerceAtLeast(0))
+            }
+        }
+        for (row in ControllerButton.entries.chunked(6)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.padding(top = 3.dp)) {
+                for (b in row) MapChip(buttonName(b, labels), b in step.buttons, "combo_btn_${b.name}") {
+                    setStep { st -> st.copy(buttons = if (b in st.buttons) st.buttons - b else st.buttons + b) }
+                }
+            }
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.padding(top = 3.dp)) {
+            MapChip("No dir", step.hat == Hat.NEUTRAL, "combo_hat_NEUTRAL") { setStep { it.copy(hat = Hat.NEUTRAL) } }
+            for (h in Hat.entries.filter { it != Hat.NEUTRAL }) MapChip(hatArrow(h), step.hat == h, "combo_hat_${h.name}", fontSize = 17.sp) { setStep { it.copy(hat = h) } }
+        }
+        if (combo.isSequence) Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("Step time ${combo.stepMs} ms", color = Color.White, fontSize = 11.sp, modifier = Modifier.width(110.dp))
+            Slider(
+                value = combo.stepMs.toFloat(), valueRange = ExtraButton.MIN_STEP_MS.toFloat()..ExtraButton.MAX_STEP_MS.toFloat(),
+                modifier = Modifier.width(220.dp).testTag("combo_speed"), onValueChange = { v -> change { it.copy(stepMs = v.toInt()) } },
+            )
         }
     }
 }

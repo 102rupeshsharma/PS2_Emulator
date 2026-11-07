@@ -40,8 +40,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ps2gamepad.bluetooth.PhoneNameControl
 import com.ps2gamepad.ui.controller.ControllerPreview
 
-private val HomeTop = Color(0xFF151A2E)
-private val HomeBottom = Color(0xFF07080D)
+private val HomeTop = Color.Black // pure black: AMOLED pixels off
+private val HomeBottom = Color.Black
 private val CardTop = Color(0xFF1F2438)
 private val CardBottom = Color(0xFF161A28)
 private val CardLine = Color(0x33FFFFFF)
@@ -160,14 +160,13 @@ fun SimpleHomeScreen(vm: MainViewModel, actions: AppActions) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text("Your controller", color = Palette.TextDim, fontSize = 12.sp, modifier = Modifier.weight(1f))
                         Box(Modifier.background(Color(0xFF4C6FFF), RoundedCornerShape(50)).padding(horizontal = 10.dp, vertical = 3.dp)) {
-                            Text(if (profile.gyro.enabled) "Gyro ON" else "Touch sticks", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            Text(profile.appearance.buttonStyle.label + " buttons", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                         }
                     }
-                    ControllerPreview(vm.input, profile, Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)), dark = store.darkControls)
+                    ControllerPreview(vm.input, profile, Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)))
                     Text("Profile: ${profile.name}", color = Palette.TextDim, fontSize = 11.sp)
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    HomeTile("Gyro", if (profile.gyro.enabled) "Tilt aim: ON" else "Tilt aim: off", Color(0xFF06B6D4), Modifier.weight(1f).testTag("homeGyro")) { vm.navigate(Screen.GYRO) }
                     HomeTile("Customize", "Size · opacity", Color(0xFF22C55E), Modifier.weight(1f).testTag("homeCustomize")) { vm.navigate(Screen.CUSTOMIZE) }
                     HomeTile("More", "Profiles", Color(0xFFF59E0B), Modifier.weight(1f).testTag("homeMore")) { vm.navigate(Screen.DASHBOARD) }
                 }

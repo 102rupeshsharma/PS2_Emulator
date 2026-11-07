@@ -71,11 +71,10 @@ class OpacityModelTest {
 class ControllerSettingsUiTest {
     @get:Rule val rule = createComposeRule()
     private val hid = FakeHid()
-    private val motion = FakeMotionSource()
     private lateinit var vm: MainViewModel
 
     @Before fun setUp() {
-        vm = MainViewModel(hid, MutableStateFlow(BluetoothState.ENABLED), { emptyList() }, DiagnosticLog(), emptyList(), { 0L }, motionSource = motion)
+        vm = MainViewModel(hid, MutableStateFlow(BluetoothState.ENABLED), { emptyList() }, DiagnosticLog(), emptyList(), { 0L })
         rule.setContent { App(vm, AppActions({}, {}, {}, {})) }
         rule.runOnIdle {
             vm.onPermissionsChanged(true); vm.onForeground(); vm.register()
@@ -99,22 +98,32 @@ class ControllerSettingsUiTest {
         rule.runOnIdle { assertEquals(1f, vm.activeProfile.value.appearance.buttonOpacity) }
     }
 
-    @Test fun gyroSwitchTurnsTheRightJoystickIntoTheGyro() {
-        rule.onNodeWithTag("stick_right").assertIsDisplayed()
+    @Test fun buttonStyleAndFaceLabelsAreChosenInSettingsAndSaved() {
         rule.onNodeWithTag("chip_Settings").performClick()
-        rule.onNodeWithTag("set_gyro").performScrollTo().performClick()
-        rule.waitForIdle()
-        rule.runOnIdle { assertTrue(vm.activeProfile.value.gyro.enabled); assertTrue(motion.running) }
-        rule.onNodeWithTag("chip_Close").performClick()
-        rule.onNodeWithTag("gyro_indicator").assertIsDisplayed()
-        rule.onNodeWithTag("stick_right").assertDoesNotExist()
-        // and back
-        rule.onNodeWithTag("chip_Settings").performClick()
-        rule.onNodeWithTag("set_gyro").performScrollTo().performClick()
-        rule.onNodeWithTag("chip_Close").performClick()
-        rule.waitForIdle()
-        rule.onNodeWithTag("stick_right").assertIsDisplayed()
-        rule.runOnIdle { assertFalse(motion.running) }
+        for (st in com.ps2gamepad.model.ButtonStyle.entries) {
+            rule.onNodeWithTag("style_${st.name}").performScrollTo().performClick()
+            rule.runOnIdle { assertEquals(st, vm.activeProfile.value.appearance.buttonStyle) }
+        }
+        rule.onNodeWithTag("faces_PLAYSTATION").performScrollTo().performClick()
+        rule.runOnIdle { assertEquals(com.ps2gamepad.model.FaceLabels.PLAYSTATION, vm.activeProfile.value.appearance.faceLabels) }
+        val back = ProfileCodec.decode(ProfileCodec.encode(vm.profiles.value)).active.appearance
+        assertEquals(com.ps2gamepad.model.ButtonStyle.OUTLINE, back.buttonStyle)
+        assertEquals(com.ps2gamepad.model.FaceLabels.PLAYSTATION, back.faceLabels)
+    }
+
+    @Test fun everyStyleAndLabelSetStillSendsTheSameButtons() {
+        val root = rule.onNodeWithTag("controller")
+        for (st in com.ps2gamepad.model.ButtonStyle.entries) for (fl in com.ps2gamepad.model.FaceLabels.entries) {
+            rule.runOnIdle { vm.updateAppearance { it.copy(buttonStyle = st, faceLabels = fl) } }
+            rule.waitForIdle()
+            val r = root.fetchSemanticsNode().boundsInRoot
+            val a = rule.onNodeWithTag("btn_CROSS", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+            root.performTouchInput { down(0, Offset(a.center.x - r.left, a.center.y - r.top)) }
+            rule.waitForIdle()
+            assertEquals("$st/$fl: bottom face button is Cross", ControllerButton.CROSS.mask, HidReportManager.decode(hid.sent.last()).buttons)
+            root.performTouchInput { up(0) }
+            rule.waitForIdle()
+        }
     }
 
     @Test fun faceButtonsAreYbaxAndStillSendTheSameButtons() {

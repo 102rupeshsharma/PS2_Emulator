@@ -73,7 +73,7 @@ class MainActivity : ComponentActivity() {
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
                 kotlinx.coroutines.flow.combine(vm.screen, vm.profiles) { s, store -> s to store.batterySaver }.collect { (s, saver) ->
-                    val playing = s == Screen.CONTROLLER || s == Screen.PC_CONTROLLER
+                    val playing = s == Screen.CONTROLLER
                     if (playing) window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
                     else window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
                     applyPowerSaving(playing && saver)
@@ -153,7 +153,6 @@ class MainActivity : ComponentActivity() {
                 cleanup = { bt.stop() },
                 settingsRepository = SettingsRepository(DataStoreTextStorage(app), settingsScope),
                 phoneNameControl = com.ps2gamepad.bluetooth.AdapterPhoneName(app) { bt.adapter },
-                motionSource = com.ps2gamepad.motion.AndroidMotionSource(app),
                 batteryPercent = {
                     battery?.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY)?.takeIf { it in 0..100 }
                 },

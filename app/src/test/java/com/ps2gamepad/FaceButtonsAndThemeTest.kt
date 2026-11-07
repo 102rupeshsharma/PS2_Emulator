@@ -146,11 +146,12 @@ class ThemeSwitchUiTest {
         return androidx.compose.ui.graphics.Color(bmp.getPixel(root.width / 2, root.height - 4))
     }
 
-    @Test fun backgroundIsPureBlack() {
-        // 2.1.0: one black "glass" look (black pixels are off on AMOLED: lowest power)
-        assertEquals(androidx.compose.ui.graphics.Color.Black, bg())
-        rule.runOnIdle { vm.setDarkControls(false) } // old setting value: still black
-        assertEquals(androidx.compose.ui.graphics.Color.Black, bg())
+    @Test fun backgroundIsPureBlackInEveryButtonStyle() {
+        // black pixels are off on AMOLED: the lowest-power background
+        for (st in com.ps2gamepad.model.ButtonStyle.entries) {
+            rule.runOnIdle { vm.updateAppearance { it.copy(buttonStyle = st) } }
+            assertEquals("$st", androidx.compose.ui.graphics.Color.Black, bg())
+        }
     }
 }
 

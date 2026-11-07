@@ -61,6 +61,8 @@ class MainViewModel(
     private val newId: () -> String = { java.util.UUID.randomUUID().toString().take(8) },
     private val phoneNameControl: com.ps2gamepad.bluetooth.PhoneNameControl? = null,
     private val autoConnectDelayMs: Long = 1_500,
+    /** Gyroscope + accelerometer (null in tests that do not need them). */
+    private val motionSource: com.ps2gamepad.motion.MotionSource? = null,
 ) : ViewModel() {
 
     private val uptime = uptimeMs
@@ -97,8 +99,63 @@ class MainViewModel(
 
     fun uptimeNow(): Long = uptime()
 
-    /** Window focus is back (after a dialog, the notification shade...). Nothing to restart any more. */
-    fun onFocusGained() = Unit
+    // ------------------------------------------------------------------ gyro aiming (right stick)
+
+    /** True when this phone has a gyroscope and an accelerometer. */
+    val gyroAvailable: Boolean get() = motionSource?.status?.usable == true
+    private val _gyroRunning = MutableStateFlow(false)
+    /** The sensors are running and drive the right stick. */
+    val gyroRunning: StateFlow<Boolean> = _gyroRunning.asStateFlow()
+    @Volatile private var gyroAim: com.ps2gamepad.motion.GyroAimEngine? = null
+    private var windowFocused = true
+
+    /** Gyro on/off for the loadout in use (top bar of the controller). */
+    fun setGyroEnabled(on: Boolean) = updateGyroAim { it.copy(enabled = on) }
+
+    fun updateGyroAim(f: (com.ps2gamepad.model.GyroAim) -> com.ps2gamepad.model.GyroAim) {
+        settings.update { s -> ProfileManager.updateActive(s) { it.copy(gyroAim = f(it.gyroAim)) } }
+        log.add("Gyro aim: " + if (settings.store.value.active.gyroAim.enabled) "on" else "off")
+        refreshMotion()
+    }
+
+    /**
+     * Sensors run only while they are used: controller shown (not editing), app visible and focused,
+     * gyro on for the loadout in use. Stopping always centres the gyro part of the right stick.
+     */
+    fun refreshMotion() {
+        val source = motionSource ?: return
+        val aim = settings.store.value.active.gyroAim
+        val want = aim.enabled && source.status.usable && inForeground && windowFocused &&
+            _screen.value == Screen.CONTROLLER && !_editMode.value
+        val engine = gyroAim
+        if (want && engine == null) {
+            val e = com.ps2gamepad.motion.GyroAimEngine().also { it.settings = aim }
+            gyroAim = e
+            if (source.start { sample -> onMotionSample(e, sample) }) {
+                _gyroRunning.value = true
+                log.add("Gyro aim started")
+            } else {
+                gyroAim = null
+                log.add("Gyro aim: sensors not available")
+            }
+        } else if (!want && engine != null) {
+            source.stop()
+            gyroAim = null
+            _gyroRunning.value = false
+            input.setGyroStick(com.ps2gamepad.controller.StickVector.ZERO)
+        }
+        gyroAim?.settings = aim
+    }
+
+    /** Sensor thread. */
+    private fun onMotionSample(e: com.ps2gamepad.motion.GyroAimEngine, sample: com.ps2gamepad.motion.MotionSample) {
+        if (e !== gyroAim) return // stopped meanwhile
+        val v = e.onSample(sample) ?: return
+        input.setGyroStick(v)
+    }
+
+    /** Window focus is back (after a dialog, the notification shade...). */
+    fun onFocusGained() { windowFocused = true; refreshMotion() }
 
     // ------------------------------------------------------------------ simple mode (auto start / connect / name)
 
@@ -206,6 +263,7 @@ class MainViewModel(
     /** Activity resumed. The stack unregisters HID apps that leave the foreground, so restore it. */
     fun onForeground() {
         inForeground = true
+        refreshMotion()
         refreshBondedHosts()
         if (wantRegistered && hidState.value.registration == RegistrationState.NotRegistered) {
             log.add("Back in foreground: HID registration was dropped by the system, registering again")
@@ -216,11 +274,14 @@ class MainViewModel(
     /** Activity stopped (not visible). Android drops HID registrations of background apps. */
     fun onBackground() {
         inForeground = false
+        refreshMotion()
         input.releaseAll()
     }
 
     /** Activity paused / lost window focus: never leave buttons held on the host. */
     fun onInterrupted(reason: String) {
+        windowFocused = false
+        refreshMotion()
         if (input.state.value != GamepadState.NEUTRAL || input.activePointers.value > 0) {
             log.add("Input interrupted ($reason): all inputs released")
         }
@@ -340,6 +401,7 @@ class MainViewModel(
     fun switchProfile(id: String) {
         input.releaseAll()
         settings.update { ProfileManager.switchTo(it, id) }
+        refreshMotion()
     }
     fun createProfile(name: String) {
         if (!ProfileManager.canCreateLoadout(profiles.value)) { log.add(LOADOUT_LIMIT_MESSAGE); return }
@@ -397,6 +459,7 @@ class MainViewModel(
     fun setEditMode(on: Boolean) {
         input.releaseAll() // nothing may stay held while controls move
         _editMode.value = on
+        refreshMotion()
     }
 
     /** Overlapping controls in the active layout for a screen of [w] x [h] dp. */
@@ -417,6 +480,7 @@ class MainViewModel(
         if (to != Screen.CONTROLLER) _editMode.value = false
         if (to == Screen.CONTROLLER && _session.value == null) _session.value = Session(uptime(), batteryPercent())
         _screen.value = to
+        refreshMotion()
     }
 
     fun resetSession() { _session.value = Session(uptime(), batteryPercent()) }
@@ -510,6 +574,8 @@ class MainViewModel(
     }
 
     override fun onCleared() {
+        motionSource?.stop()
+        gyroAim = null
         reconnectJob?.cancel()
         input.releaseAll()
         cleanup()

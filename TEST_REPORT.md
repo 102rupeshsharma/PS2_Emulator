@@ -199,6 +199,25 @@ Automated: ComboModelTest (4), ComboButtonUiTest (3), ControllerSettingsUiTest (
 choices, every style still sends the same buttons), black-background pixel test in every style:
 all passed.
 
+## 4.11 Gyro aiming (3.1.0) ⏳
+
+Setup: controller → **Gyro OFF** chip → ON. A shooter in PCSX2 (right stick = camera), or `joy.cpl`
+Properties (Z / Z-rotation = right stick).
+
+| # | Test | Expected | Result |
+|---|---|---|---|
+| A1 | Hold the phone still for 2 s | Right stick stays centred; camera does not drift | ⏳ |
+| A2 | Small slow correction (a few degrees) | Camera moves a little at once, no "nothing then jump" | ⏳ |
+| A3 | Turn 10° slowly, then 10° fast | Camera turns about the same amount both times | ⏳ |
+| A4 | Stop turning | Camera stops at once, no glide | ⏳ |
+| A5 | Tilt the top edge towards you | Look up (Invert up/down flips it) | ⏳ |
+| A6 | Touch the right stick while gyro is on | Touch wins; gyro resumes after lifting | ⏳ |
+| A7 | Game dead-zone fix 0 % vs 20 % vs 30 % | Find the value where tiny aim just moves the camera | ⏳ |
+| A8 | Gyro OFF / Edit / Home / app in background | Right stick centred; sensors stopped | ⏳ |
+
+Automated (simulated sensors, MOCK Bluetooth): GyroAimTest (11, including the simulated play test),
+GyroChipUiTest (2): all passed.
+
 ## 5. Final acceptance checklist
 
 | # | Criterion | Status |

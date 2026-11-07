@@ -120,9 +120,28 @@ class ControllerInputManager(
         }
     }
 
+    /** Right stick from touch and from the gyro: touch wins while the thumb is on the stick. */
+    private var touchRight = StickVector.ZERO
+    private var gyroRight = StickVector.ZERO
+
     /** [vector] components in [-1, 1], already through the dead zone. */
-    fun setStick(stick: Stick, vector: StickVector, eventUptimeMs: Long = clock()) =
-        mutate(eventUptimeMs) { it.withStick(stick, StickMath.toAxis(vector.x), StickMath.toAxis(vector.y)) }
+    fun setStick(stick: Stick, vector: StickVector, eventUptimeMs: Long = clock()) {
+        if (stick == Stick.LEFT) {
+            mutate(eventUptimeMs) { it.withStick(stick, StickMath.toAxis(vector.x), StickMath.toAxis(vector.y)) }
+            return
+        }
+        synchronized(lock) { touchRight = vector; applyRight(eventUptimeMs) }
+    }
+
+    /** Gyro aiming output for the right stick (any thread). */
+    fun setGyroStick(vector: StickVector, eventUptimeMs: Long = clock()) {
+        synchronized(lock) { gyroRight = vector; applyRight(eventUptimeMs) }
+    }
+
+    private fun applyRight(t: Long) {
+        val v = if (touchRight != StickVector.ZERO) touchRight else gyroRight
+        mutate(t) { it.withStick(Stick.RIGHT, StickMath.toAxis(v.x), StickMath.toAxis(v.y)) }
+    }
 
     /** Releases every input, sends a neutral report and invalidates all active touches. */
     fun releaseAll() {
@@ -130,6 +149,8 @@ class ControllerInputManager(
             pointerCounts.clear()
             holders.clear()
             dpadHolders.clear()
+            touchRight = StickVector.ZERO
+            gyroRight = StickVector.ZERO
             _activePointers.value = 0
             _state.value = GamepadState.NEUTRAL
             _resetEpoch.value = _resetEpoch.value + 1

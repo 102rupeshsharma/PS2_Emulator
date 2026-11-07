@@ -36,3 +36,15 @@ class FakeHid : HidController {
     override fun onBluetoothOff() { bluetoothOffCalls++; emit(HidEvent.BluetoothOff) }
     override fun close() { closed = true }
 }
+
+/** MOCK motion sensors: tests push samples by hand. */
+class FakeMotionSource(override val status: com.ps2gamepad.motion.MotionStatus = com.ps2gamepad.motion.MotionStatus(true, true)) : com.ps2gamepad.motion.MotionSource {
+    var listener: ((com.ps2gamepad.motion.MotionSample) -> Unit)? = null
+    var starts = 0; var stops = 0
+    val running get() = listener != null
+    override fun start(onSample: (com.ps2gamepad.motion.MotionSample) -> Unit): Boolean {
+        if (!status.usable) return false
+        listener = onSample; starts++; return true
+    }
+    override fun stop() { listener = null; stops++ }
+}

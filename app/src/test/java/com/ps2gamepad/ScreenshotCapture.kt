@@ -57,7 +57,7 @@ class ScreenshotCapture {
         assumeTrue("run with -Pscreenshots", System.getProperty("screenshotDir") != null)
         val hid = FakeHid()
         val vm = MainViewModel(hid, MutableStateFlow(BluetoothState.ENABLED), { emptyList() }, DiagnosticLog(), listOf("screenshot"), { 0L },
-            batteryPercent = { 80 }, phoneNameControl = FakePhoneName())
+            batteryPercent = { 80 }, phoneNameControl = FakePhoneName(), motionSource = FakeMotionSource())
         rule.setContent { App(vm, AppActions({}, {}, {}, {})) }
         val host = HostDevice("00:00:00:00:00:01", "LAPTOP (mock)")
         shoot("00_home_permission")
@@ -76,6 +76,9 @@ class ScreenshotCapture {
         shoot("07_loadouts")
         rule.runOnIdle { vm.playLoadout(com.ps2gamepad.settings.DefaultProfiles.STANDARD) }
         shoot("11_controller_real")
+        rule.runOnIdle { vm.setGyroEnabled(true) }
+        shoot("11e_controller_gyro_on")
+        rule.runOnIdle { vm.setGyroEnabled(false) }
         rule.onNodeWithTag("chip_Settings").performClick()
         shoot("08_controller_settings")
         rule.onNodeWithTag("chip_Close").performClick()

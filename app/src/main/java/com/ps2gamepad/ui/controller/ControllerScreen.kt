@@ -159,6 +159,7 @@ fun ControllerScreen(vm: MainViewModel) {
             SmallChipButton(if (showOverlay) "Hide" else "Live") { showOverlay = !showOverlay }
             SmallChipButton("Edit") { vm.setEditMode(true) }
             SmallChipButton("Settings") { vm.input.releaseAll(); showSettings = true }
+            if (vm.gyroAvailable) GyroChip(profile.gyroAim.enabled) { vm.setGyroEnabled(!profile.gyroAim.enabled) }
         }
         if (!hid.isConnected) {
             Text(
@@ -474,6 +475,18 @@ private fun MapChip(text: String, on: Boolean, tag: String, fontSize: androidx.c
     )
 }
 
+/** Gyro on/off on the top bar (lit when on). */
+@Composable
+private fun GyroChip(on: Boolean, onClick: () -> Unit) {
+    val neu = LocalNeu.current
+    Text(
+        if (on) "Gyro ON" else "Gyro OFF", color = if (on) Color.White else neu.text, fontSize = 11.sp,
+        fontWeight = if (on) FontWeight.Bold else FontWeight.Normal,
+        modifier = Modifier.background(if (on) Palette.Info else neu.chip, RoundedCornerShape(50)).clickable(onClick = onClick)
+            .padding(horizontal = 10.dp, vertical = 4.dp).testTag("chip_gyro"),
+    )
+}
+
 @Composable
 private fun SmallChipButton(text: String, onClick: () -> Unit) {
     val neu = LocalNeu.current
@@ -531,6 +544,17 @@ private fun ControllerSettingsPanel(vm: MainViewModel, profile: ControllerProfil
             for (fl in FaceLabels.entries) MapChip(fl.label, a.faceLabels == fl, "faces_${fl.name}") { vm.updateAppearance { it.copy(faceLabels = fl) } }
         }
         Text("Only the labels change: the buttons send the same signals, so emulator bindings stay.", color = neu.textDim, fontSize = 11.sp)
+        val g = profile.gyroAim
+        Text("Gyro aim" + if (g.enabled) " (ON)" else " (OFF: turn on with Gyro on the top bar)", color = neu.text, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+        Text("Turn the phone to aim: how fast you turn = how fast the camera turns. Stop and it stops.", color = neu.textDim, fontSize = 11.sp)
+        SettingSlider("Gyro sensitivity", g.sensitivity, 0.25f..4f, "set_gyroSens") { v -> vm.updateGyroAim { it.copy(sensitivity = v) } }
+        SettingSlider("Game dead-zone fix", g.gameDeadZone, 0f..0.4f, "set_gyroDz") { v -> vm.updateGyroAim { it.copy(gameDeadZone = v) } }
+        Text("Small, slow aim does nothing? Raise this. Camera creeps when you barely move? Lower it.", color = neu.textDim, fontSize = 11.sp)
+        SettingSlider("Up/down speed", g.verticalScale, 0.5f..1.5f, "set_gyroVert") { v -> vm.updateGyroAim { it.copy(verticalScale = v) } }
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            MapChip("Invert up/down", g.invertY, "set_gyroInvY") { vm.updateGyroAim { it.copy(invertY = !it.invertY) } }
+            MapChip("Invert left/right", g.invertX, "set_gyroInvX") { vm.updateGyroAim { it.copy(invertX = !it.invertX) } }
+        }
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Text("Battery saver", color = neu.text, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)

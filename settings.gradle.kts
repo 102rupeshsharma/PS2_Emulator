@@ -12,5 +12,5 @@ dependencyResolutionManagement {
         mavenCentral()
     }
 }
-rootProject.name = "BluetoothGamepad"
+rootProject.name = "PadLink"
 include(":app")

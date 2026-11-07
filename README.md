@@ -1,16 +1,22 @@
-# PS2 Bluetooth Gamepad (Android → Windows / PCSX2)
+# PadLink: your phone as a Bluetooth controller
+
+**PadLink** turns an Android phone into a Bluetooth controller for a Windows PC: a gamepad for PCSX2 and
+other emulators, a keyboard + mouse for PC games, gyro aiming, loadouts per game, and a soft light or
+black theme. No PC software and no driver needed.
 
 ## 📲 Install on your phone
 
 1. Open this page on your Android phone and tap the **Download** link at the [bottom of this page](#-download).
-2. Open the downloaded `PS2BluetoothGamepad.apk` (from the notification or the Downloads folder).
+2. Open the downloaded `PadLink.apk` (from the notification or the Downloads folder).
 3. If asked, allow **"Install unknown apps"** for your browser or file manager, then tap **Install**.
    Android or Play Protect may warn that the app is from an unknown developer, because it isn't
    from the Play Store. Choose **Install anyway**.
-4. Open **PS2 Bluetooth Gamepad** and follow the one instruction on the screen:
-   - **Allow** Bluetooth access, then the app sets itself up and renames the phone to **"PS2 Gamepad"**.
+4. Open **PadLink** and follow the one instruction on the screen:
+   - **Allow** Bluetooth access, then the app sets itself up and renames the phone to **"PadLink"**.
    - First time: tap **Make phone visible to PC**, then on the laptop go to Settings → Bluetooth & devices →
-     Add device → Bluetooth → **PS2 Gamepad**, and confirm the code on both screens.
+     Add device → Bluetooth → **PadLink**, and confirm the code on both screens.
+   - Already paired with an older version? It keeps working. Windows may still show the old name
+     "PS2 Gamepad" until you remove the phone and pair it again.
    - Next times: just open the app with Bluetooth on (phone and laptop); it connects by itself.
    - When it says **Connected ✓**, tap **Open Controller**.
    - If the phone was paired with the laptop *before*, remove it in Windows Bluetooth settings first and pair again.
@@ -27,17 +33,31 @@ Requires Android 9 or newer with Bluetooth.
 | **Loadouts (one per game)** | **Controller with gyro** |
 | ![Loadouts](docs/screenshots/07_loadouts.png) | ![Controller gyro](docs/screenshots/06_controller_gyro.png) |
 
-SHA-256: `a617f8a70e1d6c9bd1a74d0d6799ea7b5ef9bd5f5fc148f0ff22ab7ea7fe27a5`
+SHA-256: `e4e74c2ce6506fc52f2d3b234228e3c5f56ace0714c9dd788a6689b8fecb03e4`
 
 ---
 
-An Android app that turns a phone into a **Bluetooth HID gamepad** with a DualShock 2-style touch
-layout. Windows sees a standard game controller (no driver, no PC software), so PCSX2 and other
-games can use it like any other pad.
+PadLink is an Android app that turns a phone into a **Bluetooth HID controller** with a touch
+layout you can rearrange freely. Windows sees a standard game controller (and, if you switch on
+PC input, a keyboard and mouse), so PCSX2, other emulators and PC games can use it with no driver
+and no PC software.
 
-**Version 1.0.0.** Status: feature-complete and covered by 181 automated tests (179 passed, 2 skipped).
-**No test has yet been run on the POCO F6 + Windows 11.** Hardware results, game compatibility and
-end-to-end latency are therefore all *unverified*. See [TEST_REPORT.md](TEST_REPORT.md).
+**Version 2.0.0.** 311 automated tests (309 passed, 2 skipped).
+- Confirmed on real hardware by the developer (POCO F6 + Windows 11): registration, pairing,
+  Windows game controller test (`joy.cpl`), PCSX2 with manual binding.
+- Not yet confirmed on hardware: gyro aiming, loadouts, PC Mode (keyboard/mouse), the soft-UI
+  themes and the battery saver. See [TEST_REPORT.md](TEST_REPORT.md).
+
+### 🔋 Battery and heat
+
+**Battery saver** is ON by default (controller → Settings). While a controller is open it:
+- limits the screen to **60 Hz** instead of 90/120 Hz, which halves display and GPU work;
+- **dims the screen**, since you look at the PC, not the phone;
+- sends Bluetooth reports at **125 Hz** instead of 250 Hz (adds at most 4 ms).
+
+The app also has no background polling: the Bluetooth sender, the PC mouse ticker and the motion
+sensors sleep completely when idle, and the sensors run only while gyro aiming is on. For the
+lowest power use on an AMOLED phone, also switch on the **Black theme** (black pixels are off).
 
 | Document | Contents |
 |---|---|
@@ -110,8 +130,8 @@ Source layout: `bluetooth/` (HID layer), `controller/` (input manager, stick mat
 
 ## Quick start
 
-1. Install `release/PS2BluetoothGamepad-1.0.0-release.apk` ([INSTALLATION.md](INSTALLATION.md)).
-2. Open the app → Connection → Grant permission → **Register HID Device** → **Make discoverable**.
+1. Install the APK from the [Download](#-download) link below.
+2. Open PadLink → allow Bluetooth access → **Make phone visible to PC**.
 3. Windows → Bluetooth → Add device → pick the phone → confirm the code.
 4. Check `joy.cpl`, then **Open Controller** and bind it in PCSX2 ([PCSX2_CONFIGURATION.md](PCSX2_CONFIGURATION.md)).
 
@@ -127,18 +147,26 @@ Source layout: `bluetooth/` (HID layer), `controller/` (input manager, stick mat
 
 ## 📥 Download
 
-### **[⬇️ Download the APK (v1.9.0, 2.7 MB)](https://raw.githubusercontent.com/102rupeshsharma/PS2_Emulator/main/download/PS2BluetoothGamepad.apk)**
+### **[⬇️ Download PadLink (v2.0.0, 2.7 MB)](https://raw.githubusercontent.com/102rupeshsharma/PS2_Emulator/main/download/PadLink.apk)**
 
 Tap the link on your Android phone, open the downloaded file and tap **Install**. It installs over an
 older version, and your loadouts and pairing are kept.
 
 ## ❤️ Support this project
 
-The app is free. If it helped you and you'd like to say thanks, a small donation by **UPI** is welcome:
+PadLink is free. If it helped you and you'd like to say thanks, a small donation by **UPI** is welcome.
 
+**Scan with any UPI app** (Google Pay, PhonePe, Paytm, BHIM…):
+
+<img src="docs/support/upi-qr.png" alt="UPI QR code: Rupesh Sharma, 102rupeshsharma@okicici" width="260">
+
+Or pay to a UPI ID (open your UPI app → **Pay to UPI ID** → paste → any amount → send):
+
+```
+102rupeshsharma@okicici
+```
 ```
 7483124898@superyes
 ```
 
-Open any UPI app (Google Pay, PhonePe, Paytm, BHIM…), choose **Pay to UPI ID**, paste the ID above,
-enter any amount and send. Thank you! 🙏
+Thank you! 🙏

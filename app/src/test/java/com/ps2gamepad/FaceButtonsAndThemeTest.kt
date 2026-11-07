@@ -138,3 +138,25 @@ class ThemeSwitchUiTest {
         assertEquals(NeuThemes.LIGHT.bg, bg())
     }
 }
+
+/** 2.0.0: PadLink name + battery saver plumbing. */
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [34])
+class RenameAndBatteryTest {
+    @Test fun oldGamepadNameIsNeverSavedAsThePhonesOwnName() {
+        assertEquals("PadLink", com.ps2gamepad.bluetooth.PhoneNameControl.GAMEPAD_NAME)
+        assertTrue("PS2 Gamepad" in com.ps2gamepad.bluetooth.PhoneNameControl.LEGACY_NAMES)
+    }
+
+    @Test fun batterySaverIsOnByDefaultStoredAndSentToTheHidSender() {
+        val old = """{"activeId":"standard","profiles":[{"id":"standard","name":"Standard PS2","builtIn":true}]}"""
+        assertTrue("default ON, also for settings saved by older versions", ProfileCodec.decode(old).batterySaver)
+        val hid = FakeHid()
+        val vm = MainViewModel(hid, MutableStateFlow(BluetoothState.ENABLED), { emptyList() }, DiagnosticLog(), emptyList(), { 0L })
+        vm.setBatterySaver(false)
+        assertFalse(vm.profiles.value.batterySaver); assertEquals(false, hid.powerSaving)
+        assertFalse(ProfileCodec.decode(ProfileCodec.encode(vm.profiles.value)).batterySaver)
+        vm.setBatterySaver(true)
+        assertEquals(true, hid.powerSaving)
+    }
+}

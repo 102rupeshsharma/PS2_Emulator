@@ -85,10 +85,10 @@ fun SimpleHomeScreen(vm: MainViewModel, actions: AppActions) {
                         Modifier.size(44.dp).clip(RoundedCornerShape(12.dp))
                             .background(Brush.linearGradient(listOf(Color(0xFF4C6FFF), Color(0xFF8E5CFF)))),
                         contentAlignment = Alignment.Center,
-                    ) { Text("PS2", color = Color.White, fontWeight = FontWeight.Black, fontSize = 14.sp) }
+                    ) { Text("PL", color = Color.White, fontWeight = FontWeight.Black, fontSize = 15.sp) }
                     Column {
-                        Text("PS2 Gamepad", color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Bold)
-                        Text("Bluetooth controller for your PC", color = Palette.TextDim, fontSize = 12.sp)
+                        Text("PadLink", color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Bold)
+                        Text("Phone controller for emulators & PC games", color = Palette.TextDim, fontSize = 12.sp)
                     }
                 }
 

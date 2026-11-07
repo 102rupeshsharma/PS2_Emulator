@@ -1,5 +1,22 @@
 # Release notes
 
+## 2.0.0 (versionCode 14), 2026-11-07: PadLink, battery saver, UPI support
+
+- **New name: PadLink** (it is more than a PS2 pad: emulators, PC games with keyboard + mouse,
+  gyro). App name, home screen, the phone's Bluetooth name shown in Windows, the HID service
+  name and the README/docs. A phone still named "PS2 Gamepad" by an older version is renamed to
+  "PadLink" and that old name is never stored as the phone's own name. A PC paired before keeps
+  working; Windows may show the old name until it is paired again. The package id is unchanged, so
+  2.0.0 installs over older versions and keeps all settings.
+- **Battery saver (ON by default)**, in the controller Settings and PC profiles & settings. While a
+  controller is open: screen limited to 60 Hz (instead of 90/120 Hz), screen dimmed to 20 %,
+  Bluetooth reports at 125 Hz instead of 250 Hz (at most +4 ms). Leaving the controller restores
+  brightness and refresh rate.
+- **No idle wake-ups:** the Bluetooth sender thread now sleeps until a report is queued (it used to
+  wake 4 times a second).
+- README: UPI QR code and UPI IDs in "Support this project"; APK file renamed to `download/PadLink.apk`.
+- Tests: 311 (309 passed, 2 skipped). Battery and heat savings are not measured on the phone yet.
+
 ## 1.9.0 (versionCode 13), 2026-11-07: separate face buttons, free layout editing, theme fix
 
 - **△ ○ ✕ □ are four separate buttons:** each one can be moved, resized and faded on its own.

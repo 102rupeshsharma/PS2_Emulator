@@ -25,10 +25,10 @@ as before (gamepad only), so nothing changes for emulator users.
 
 1. Open the app → **Open Controller** → **PC Gaming** → **Enable PC input** (or: PC profiles &
    settings → PC input → Enabled).
-2. **On the laptop:** Settings → Bluetooth & devices → the phone (**PS2 Gamepad**) → **Remove device**.
+2. **On the laptop:** Settings → Bluetooth & devices → the phone (**PadLink**, or **PS2 Gamepad** if it was paired with an older version) → **Remove device**.
    Windows remembers the old device type, so this re-pair is required **once**.
 3. On the phone, tap **Make phone visible to PC** on the home screen. On the laptop: **Add device →
-   Bluetooth → PS2 Gamepad**, then confirm the code on both screens.
+   Bluetooth → PadLink**, then confirm the code on both screens.
 4. Windows installs a game controller, a keyboard and a mouse (Device Manager → Keyboards / Mice
    and other pointing devices / Human Interface Devices).
 5. Emulator Mode keeps working afterwards (same gamepad report). PCSX2 bindings should stay valid;

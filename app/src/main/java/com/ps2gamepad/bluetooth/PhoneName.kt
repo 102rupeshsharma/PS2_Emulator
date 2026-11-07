@@ -7,8 +7,9 @@ import androidx.core.content.edit
 
 /**
  * Windows shows a Bluetooth gamepad under the PHONE's Bluetooth name (not the app name).
- * This renames the phone to [GAMEPAD_NAME] so the PC lists "PS2 Gamepad", and remembers the
- * original name so it can be restored.
+ * This renames the phone to [GAMEPAD_NAME] so the PC lists "PadLink", and remembers the
+ * original name so it can be restored. Names used by older versions ([LEGACY_NAMES]) are treated
+ * as gamepad names, never saved as the phone's own name.
  */
 interface PhoneNameControl {
     fun current(): String?
@@ -18,7 +19,11 @@ interface PhoneNameControl {
     fun restoreOriginal(): Boolean
     val originalName: String?
 
-    companion object { const val GAMEPAD_NAME = "PS2 Gamepad" }
+    companion object {
+        const val GAMEPAD_NAME = "PadLink"
+        /** Bluetooth names set by earlier versions (1.0 - 1.9 used "PS2 Gamepad"). */
+        val LEGACY_NAMES = setOf("PS2 Gamepad")
+    }
 }
 
 @SuppressLint("MissingPermission") // only called after BLUETOOTH_CONNECT is granted; SecurityException is caught
@@ -34,7 +39,7 @@ class AdapterPhoneName(context: Context, private val adapter: () -> BluetoothAda
         val now = a.name
         if (now == PhoneNameControl.GAMEPAD_NAME) true
         else {
-            if (originalName == null && !now.isNullOrBlank()) prefs.edit { putString(KEY_ORIGINAL, now) }
+            if (originalName == null && !now.isNullOrBlank() && now !in PhoneNameControl.LEGACY_NAMES) prefs.edit { putString(KEY_ORIGINAL, now) }
             a.setName(PhoneNameControl.GAMEPAD_NAME)
         }
     } catch (e: SecurityException) { false }

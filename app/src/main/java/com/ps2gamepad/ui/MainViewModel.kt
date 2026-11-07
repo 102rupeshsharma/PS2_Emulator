@@ -32,6 +32,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -391,7 +392,7 @@ class MainViewModel(
 
     /**
      * Called whenever the app comes to the foreground (and after permissions are granted): names the
-     * phone "PS2 Gamepad" and registers the gamepad, so the user only has to open the app.
+     * phone "PadLink" and registers the gamepad, so the user only has to open the app.
      */
     fun autoStart() {
         if (permission.value != PermissionState.GRANTED || bluetoothState.value != BluetoothState.ENABLED) return
@@ -456,6 +457,8 @@ class MainViewModel(
         compatibility.forEach { log.add(it) }
         viewModelScope.launch { hid.state.collect(::onHidState) }
         viewModelScope.launch { bluetoothState.collect(::onBluetoothState) }
+        // battery saver also covers the saved setting once it is loaded from disk
+        viewModelScope.launch { settings.store.map { it.batterySaver }.distinctUntilChanged().collect { hid.setPowerSaving(it) } }
     }
 
     // ------------------------------------------------------------------ inputs from the Activity
@@ -588,6 +591,12 @@ class MainViewModel(
 
     /** Light or black soft-UI theme, shared by the Emulator and PC controllers. */
     fun setDarkControls(on: Boolean) = settings.update { it.copy(darkControls = on) }
+
+    /** Battery saver (screen 60 Hz + dimmed while playing, 125 Hz reports). */
+    fun setBatterySaver(on: Boolean) {
+        settings.update { it.copy(batterySaver = on) }
+        hid.setPowerSaving(on)
+    }
 
     /** Layout editor "Save": positions/sizes of the built-in controls plus the user's extra buttons. */
     fun saveLayout(placements: Map<ControlId, Placement>, extras: List<com.ps2gamepad.model.ExtraButton>) =

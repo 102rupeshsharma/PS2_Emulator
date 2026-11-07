@@ -61,7 +61,7 @@ object ProfileManager {
     fun canCreateLoadout(s: ProfileStore): Boolean = loadouts(s).size < MAX_LOADOUTS
 
     /**
-     * New loadout as a copy of [templateId]'s layout, look, analog and gyro settings (so the user
+     * New loadout as a copy of [templateId]'s layout, look, and analog settings (so the user
      * starts from what they know), with a new id and name. Refused (store unchanged) at the limit.
      */
     fun createFrom(s: ProfileStore, name: String, templateId: String, idGen: () -> String): ProfileStore {
@@ -122,14 +122,7 @@ object ProfileManager {
         for (b in DefaultProfiles.all) if (profiles.none { it.id == b.id }) profiles.add(b)
         val active = if (profiles.any { it.id == s.activeId }) s.activeId else DefaultProfiles.STANDARD
         // copy(): every other field (and any future one) is kept as stored
-        return s.copy(activeId = active, profiles = profiles, gyroNeutral = validNeutral(s.gyroNeutral), pc = com.ps2gamepad.pc.PcProfileManager.normalize(s.pc))
-    }
-
-    /** A stored gyro neutral must be a finite, non-zero vector; anything else means "not calibrated". */
-    fun validNeutral(n: com.ps2gamepad.model.GyroNeutral?): com.ps2gamepad.model.GyroNeutral? {
-        if (n == null || !n.x.isFinite() || !n.y.isFinite() || !n.z.isFinite()) return null
-        val len = kotlin.math.sqrt(n.x * n.x + n.y * n.y + n.z * n.z)
-        return if (len < 1e-3f) null else com.ps2gamepad.model.GyroNeutral(n.x / len, n.y / len, n.z / len)
+        return s.copy(activeId = active, profiles = profiles)
     }
 
     private fun uniqueId(s: ProfileStore, idGen: () -> String): String {

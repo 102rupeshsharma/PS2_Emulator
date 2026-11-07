@@ -1,8 +1,14 @@
 # PadLink: your phone as a Bluetooth controller
 
-**PadLink** turns an Android phone into a Bluetooth controller for a Windows PC: a gamepad for PCSX2 and
-other emulators, a keyboard + mouse for PC games, gyro aiming, loadouts per game, and a black
-controller look with Y/B/A/X buttons. No PC software and no driver needed.
+**PadLink** turns an Android phone into a simple **Bluetooth game controller** for a Windows PC. Windows
+sees a normal game controller, so PCSX2 and other emulators can use it. No PC software and no driver
+needed.
+
+- Buttons in **3 styles**: **Real** (3D like a physical pad), **Simple** (flat) or **Outline** (rings only)
+- Face buttons labelled **Y B A X** or **△ ○ ✕ □**
+- **Combo buttons**: press several buttons together (e.g. L1+R1), or play a sequence (e.g. ↓ ↘ → + X)
+- **Pure black background**: on AMOLED phones black pixels are switched off, which saves battery
+- Move, resize and add buttons freely, with up to 5 **loadouts** (one per game)
 
 ## 📲 Install on your phone
 
@@ -12,57 +18,68 @@ controller look with Y/B/A/X buttons. No PC software and no driver needed.
    Android or Play Protect may warn that the app is from an unknown developer, because it isn't
    from the Play Store. Choose **Install anyway**.
 4. Open **PadLink** and follow the one instruction on the screen:
-   - **Allow** Bluetooth access, then the app sets itself up and renames the phone to **"PadLink"**.
-   - First time: tap **Make phone visible to PC**, then on the laptop go to Settings → Bluetooth & devices →
+   - **Allow** Bluetooth access. The app then sets itself up and renames the phone to **"PadLink"**.
+   - First time: tap **Make phone visible to PC**. On the laptop, go to Settings → Bluetooth & devices →
      Add device → Bluetooth → **PadLink**, and confirm the code on both screens.
-   - Already paired with an older version? It keeps working. Windows may still show the old name
-     "PS2 Gamepad" until you remove the phone and pair it again.
-   - Next times: just open the app with Bluetooth on (phone and laptop); it connects by itself.
-   - When it says **Connected ✓**, tap **Open Controller**.
-   - If the phone was paired with the laptop *before*, remove it in Windows Bluetooth settings first and pair again.
+   - After that, just open the app with Bluetooth on (phone and laptop). It connects by itself.
+   - When it says **Connected ✓**, tap **Open Controller** and pick a loadout.
+   - **Updating from an older version:** remove the phone in Windows Bluetooth settings and pair it
+     again once. Windows may still show the old name "PS2 Gamepad" until you do.
 
 Requires Android 9 or newer with Bluetooth.
 
 ### Screens
 
-| Home | Settings inside the controller |
+| Real buttons (Y B A X) | Real buttons (△ ○ ✕ □) |
 |---|---|
-| ![Home](docs/screenshots/02_home_connected.png) | ![Controller settings](docs/screenshots/08_controller_settings.png) |
-| **Mode selection** | **PC Gaming controller** |
-| ![Modes](docs/screenshots/20_mode_select.png) | ![PC controller](docs/screenshots/21_pc_controller.png) |
-| **Loadouts (one per game)** | **Controller with gyro** |
-| ![Loadouts](docs/screenshots/07_loadouts.png) | ![Controller gyro](docs/screenshots/06_controller_gyro.png) |
-
-SHA-256: `776f73d2938503b3dfc9c9e249c4e36d3159db53acac70a6d54fd35bc12ad113`
+| ![Real](docs/screenshots/11_controller_real.png) | ![Real PlayStation](docs/screenshots/11b_controller_real_playstation.png) |
+| **Simple buttons** | **Outline buttons** |
+| ![Simple](docs/screenshots/11c_controller_simple.png) | ![Outline](docs/screenshots/11d_controller_outline.png) |
+| **Combo buttons** | **Making a combo (Edit)** |
+| ![Combos](docs/screenshots/19_controller_combos.png) | ![Combo editor](docs/screenshots/12_edit_combo.png) |
+| **Settings inside the controller** | **Loadouts (one per game)** |
+| ![Settings](docs/screenshots/08_controller_settings.png) | ![Loadouts](docs/screenshots/07_loadouts.png) |
 
 ---
 
-PadLink is an Android app that turns a phone into a **Bluetooth HID controller** with a touch
-layout you can rearrange freely. Windows sees a standard game controller (and, with PC input on,
-which is the default, a keyboard and mouse), so PCSX2, other emulators and PC games can use it with no driver
-and no PC software.
-
-**Version 2.1.0.** 314 automated tests (312 passed, 2 skipped).
+**Version 3.0.0.** 244 automated tests (242 passed, 2 skipped).
 - Confirmed on real hardware by the developer (POCO F6 + Windows 11): registration, pairing,
   Windows game controller test (`joy.cpl`), PCSX2 with manual binding.
-- Not yet confirmed on hardware: gyro aiming, loadouts, PC Mode (keyboard/mouse), the black
-  controller look and the battery saver. See [TEST_REPORT.md](TEST_REPORT.md).
+- Not yet confirmed on hardware: button styles, combo buttons, loadouts and the battery saver.
+  See [TEST_REPORT.md](TEST_REPORT.md).
 
-**PC Gaming shows "Online" but keys, mouse or gyro do nothing?** Windows remembers what the phone was
-when it was first paired. On the laptop: Settings → Bluetooth & devices → PadLink (or "PS2 Gamepad")
-→ **Remove device**, then **Add device** → PadLink again. Needed once per laptop. The **?** button on
-the PC controller shows the same steps.
+## 🎮 Works with emulators
 
-### 🔋 Battery and heat
+Windows sees PadLink as a standard (DirectInput / HID) game controller with 12 buttons, a D-pad and
+two analog sticks. Bind it once in the emulator's controller settings:
 
-**Battery saver** is ON by default (controller → Settings). While a controller is open it:
-- limits the screen to **60 Hz** instead of 90/120 Hz, which halves display and GPU work;
-- leaves **brightness** to you: adjust it with the phone's normal brightness control while playing (lower = less battery);
-- sends Bluetooth reports at **125 Hz** instead of 250 Hz (adds at most 4 ms).
+- **PCSX2** (PS2): Settings → Controllers → bind each button ([PCSX2_CONFIGURATION.md](PCSX2_CONFIGURATION.md)).
+- **RetroArch, PPSSPP, DuckStation, Dolphin** and other emulators with generic controller support:
+  pick "PadLink" in their controller settings and bind the buttons.
+- Check it first in Windows: press Win+R → `joy.cpl` → PadLink → Properties, and press buttons.
+- Games that only accept Xbox (XInput) controllers don't see a generic controller. Add the game to
+  **Steam** and turn on Steam Input for generic controllers, or use a tool such as x360ce.
 
-The app also has no background polling: the Bluetooth sender, the PC mouse ticker and the motion
-sensors sleep completely when idle, and the sensors run only while gyro aiming is on. The controller
-background is pure black, so on an AMOLED phone those pixels are switched off.
+## 🧩 Combo buttons
+
+In the controller tap **Edit → + Combo**, then choose what the combo presses:
+
+- **One step** (e.g. **L1+R1**): all its buttons are pressed together while you hold the combo button.
+  All the buttons reach the PC in the same report.
+- **Several steps** (tap **+ Step**, e.g. **↓ ↘ → + X**): each tap plays the steps in order. **Step time**
+  sets how long each step is held (30–300 ms). If a step repeats a button from the step before, the
+  combo releases it briefly first, so the game sees a new press.
+- Each step can hold any of the 12 buttons plus one D-pad direction. Drag the combo button anywhere,
+  resize it with the blue corner, and delete it with the red ✕. Press **Save**.
+
+## 🔋 Battery and heat
+
+- **Pure black background** everywhere: AMOLED pixels stay off, and only the buttons light up.
+  **Outline** buttons light up the fewest pixels.
+- **Battery saver** is ON by default (controller → Settings). While the controller is open, it limits
+  the screen to **60 Hz** instead of 90/120 Hz and sends Bluetooth reports at **125 Hz** instead of 250 Hz
+  (at most 4 ms later). Brightness is left to you: lower it with the phone's normal slider.
+- No background work: the Bluetooth sender sleeps until a button changes.
 
 | Document | Contents |
 |---|---|
@@ -71,40 +88,32 @@ background is pure black, so on an AMOLED phone those pixels are switched off.
 | [PCSX2_CONFIGURATION.md](PCSX2_CONFIGURATION.md) | Button/axis mapping and PCSX2 binding |
 | [TEST_REPORT.md](TEST_REPORT.md) | Automated results, what is mocked, the hardware test procedure |
 | [BUG_REPORT.md](BUG_REPORT.md) | Every bug found, its root cause, fix and regression test |
-| [RELEASE_NOTES.md](RELEASE_NOTES.md) | 1.0.0 contents and known limitations |
-| [DEVELOPMENT_PROGRESS.md](DEVELOPMENT_PROGRESS.md) | Phase-by-phase history and remaining work |
+| [RELEASE_NOTES.md](RELEASE_NOTES.md) | What changed in each version |
+| [DEVELOPMENT_PROGRESS.md](DEVELOPMENT_PROGRESS.md) | Phase-by-phase history |
 
 ## Features
 
 - **Bluetooth HID gamepad** using Android's public `BluetoothHidDevice` API (Android 9+):
-  12 buttons, D-pad (hat switch) and two analog sticks. One fixed report, so the PC never needs re-pairing.
-- **DualShock 2 layout:** D-pad, △ ○ ✕ □, L1 L2 R1 R2, Start, Select, L3, R3 and two analog sticks.
-  Full multi-touch with per-finger tracking.
+  12 buttons, D-pad (hat switch) and two analog sticks, in one fixed report.
+- **Layout:** D-pad, four face buttons (each one separate), L1 L2 R1 R2, Start, Select, L3, R3 and
+  two analog sticks. Full multi-touch with per-finger tracking.
+- **Button styles:** Real, Simple or Outline, and Y B A X or △ ○ ✕ □ labels. Only the look changes:
+  every style sends the same buttons, so emulator bindings stay.
+- **Combo buttons:** pressed together or played as a sequence (see above). Up to 12 added buttons and
+  combos per loadout, 8 steps per combo.
 - **Never-stuck inputs:** everything is released on lift, cancel, app pause, focus loss,
-  notification shade, back, profile switch, layout editing, Bluetooth off and connection loss.
+  notification shade, back, loadout switch, layout editing, Bluetooth off and connection loss.
   A failed report is retried with the current state.
-- **Two modes:** *Emulator Gaming* (unchanged PS2 controller) and **PC Gaming**: Bluetooth keyboard +
-  mouse with a W/A/S/D stick, gyro mouse aiming, mouse buttons, wheel, custom buttons (key combos too)
-  and PC game profiles. See [PC_MODE.md](PC_MODE.md). Windows test pending.
-- **Loadouts (up to 5):** one saved setup per game. Each keeps its own button layout, sizes,
-  opacity, sticks and gyro. Open Controller asks which loadout to play; create one, arrange the
-  buttons, Save, and next time just pick it.
-- **Gyro right stick (360°):** tilt the phone to move the right stick like a real analog stick:
-  any direction, any intermediate angle, held tilt = held stick, back to neutral = centre.
-  Gyroscope + accelerometer fusion (no drift), Recenter / Calibrate, sensitivity, max tilt angle,
-  dead zone, smoothing, invert X/Y, and a live test screen showing exactly what is sent.
-- **Settings inside the controller** (Settings button): gyro on/off (on = the right joystick
-  becomes the gyro), opacity of all controls, size of all buttons, joystick size.
-- **Customization:** button size, stick size, opacity of all controls **and of each control**, controller opacity,
-  face-button spacing, 4 backgrounds, labels, haptics.
-- **Layout editor:** drag, resize and reset controls; overlapping drops are refused; layouts adapt to any screen size.
-- **Profiles:** Standard PS2, God of War, God of War II, GTA San Andreas, NFS Most Wanted, Custom,
-  plus your own (create, rename, duplicate, delete, restore). Profiles never change the button mapping.
+- **Loadouts (up to 5):** one saved setup per game. Each keeps its own layout, sizes, opacity,
+  button style, sticks and combo buttons.
+- **Layout editor:** drag any control, resize it with the blue corner handle, overlap allowed,
+  extra buttons (a second Cross, for example) and combos. Layouts adapt to any screen size.
+- **Settings inside the controller:** button style, face labels, battery saver, opacity of all
+  controls, button size, joystick size.
+- **Customization:** opacity of each control, face-button spacing, labels, haptics.
 - **Analog settings per stick:** sensitivity, dead zone, max range, response curve, invert Y,
   fixed/floating centre, centre calibration with a live X/Y visualizer.
-- **Dashboard:** connection status and timer, last connection, active profile, phone battery, quick access to every screen.
-- **Diagnostics:** every input live, the last HID report, measured report rate, report generation time,
-  touch→send time, app CPU %, heap, session battery change.
+- **Diagnostics:** every input live, the last HID report, measured report rate and timing.
 
 ## Technology
 
@@ -116,29 +125,19 @@ Tests: JUnit 4, kotlinx-coroutines-test, Robolectric 4.14 + Compose UI test.
 
 ```
  Touch (Compose) ──► per-control pointer tracking (ui/controller/PointerTracking.kt)
-        │                 D-pad · face cluster · sticks (StickMath) · buttons
+        │                 D-pad · face buttons · sticks (StickMath) · buttons · combo buttons
         ▼
- ControllerInputManager  ── single source of truth for the controller state, locked,
-        │                   dedups, releaseAll() + reset epoch invalidates stale fingers
+ ControllerInputManager  ── single source of truth for the controller state, locked; each
+        │                   button/direction is held per control (combos never cut a real press)
         ▼  HidReportManager.encode()  (6-byte report, Report ID 1)
  HidDeviceManager        ── BluetoothHidDevice proxy · registerApp · callbacks (own thread)
-        │                   sender thread: 4 ms pacing, axis-only coalescing, retry on failure
+        │                   sender thread: 4 ms pacing (8 ms in battery saver), axis-only coalescing, retry
         ▼
-   Android Bluetooth stack ──► Windows HID game controller ──► PCSX2 (SDL / DInput)
-
- MainViewModel  ── connects UI, input manager, HID state machine (HidStateReducer), lifecycle
-                   (pause/stop/focus → release), reconnect, profiles (SettingsRepository → DataStore)
+   Android Bluetooth stack ──► Windows HID game controller ──► PCSX2 / other emulators
 ```
 
 Source layout: `bluetooth/` (HID layer), `controller/` (input manager, stick maths, layout engine),
 `model/`, `settings/` (profiles, persistence), `permissions/`, `ui/` (screens), `ui/controller/` (controller UI).
-
-## Quick start
-
-1. Install the APK from the [Download](#-download) link below.
-2. Open PadLink → allow Bluetooth access → **Make phone visible to PC**.
-3. Windows → Bluetooth → Add device → pick the phone → confirm the code.
-4. Check `joy.cpl`, then **Open Controller** and bind it in PCSX2 ([PCSX2_CONFIGURATION.md](PCSX2_CONFIGURATION.md)).
 
 ## Known limitations
 
@@ -146,16 +145,17 @@ Source layout: `bluetooth/` (HID layer), `controller/` (input manager, stick mat
   the app re-registers when you return. The controller screen keeps the display on.
 - L2/R2 are digital (no pressure). Sticks are 8-bit with a circular range (diagonal ≈ ±90 per axis).
 - No vibration (the HID report has no output/rumble report).
+- Windows sees a generic (DirectInput) controller, not an Xbox (XInput) one.
 - Only one app on the phone can be a HID device at a time.
-- Earbuds on the phone play phone audio only; PC game audio is not forwarded.
-- Game profiles are tuning starting points, not tested presets.
 
 ## 📥 Download
 
-### **[⬇️ Download PadLink (v2.1.0, 2.7 MB)](https://raw.githubusercontent.com/102rupeshsharma/PS2_Emulator/main/download/PadLink.apk)**
+### **[⬇️ Download PadLink (v3.0.0, 2.5 MB)](https://raw.githubusercontent.com/102rupeshsharma/PS2_Emulator/main/download/PadLink.apk)**
 
 Tap the link on your Android phone, open the downloaded file and tap **Install**. It installs over an
-older version, and your loadouts and pairing are kept.
+older version, and your loadouts are kept.
+
+SHA-256: `527123b1ffd8c8e870d7068e963c756f1bd62744d03adfcfa67ba6829067e66d`
 
 ## ❤️ Support this project
 

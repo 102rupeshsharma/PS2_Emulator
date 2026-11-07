@@ -61,7 +61,18 @@ data class Dpad(
     val hat: Hat get() = Hat.from(up, down, left, right)
     val isNeutral: Boolean get() = hat == Hat.NEUTRAL
 
-    companion object { val NEUTRAL = Dpad() }
+    companion object {
+        val NEUTRAL = Dpad()
+
+        /** The D-pad state that produces [hat]. */
+        fun of(hat: Hat) = when (hat) {
+            Hat.UP -> Dpad(up = true); Hat.UP_RIGHT -> Dpad(up = true, right = true)
+            Hat.RIGHT -> Dpad(right = true); Hat.DOWN_RIGHT -> Dpad(down = true, right = true)
+            Hat.DOWN -> Dpad(down = true); Hat.DOWN_LEFT -> Dpad(down = true, left = true)
+            Hat.LEFT -> Dpad(left = true); Hat.UP_LEFT -> Dpad(up = true, left = true)
+            Hat.NEUTRAL -> NEUTRAL
+        }
+    }
 }
 
 /**

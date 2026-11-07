@@ -75,8 +75,6 @@ class ControllerUiTest {
     private fun openController() {
         rule.onNodeWithTag("dash_controller").performClick()
         rule.waitForIdle()
-        rule.onNodeWithTag("mode_EMULATOR").performClick()  // mode selection
-        rule.waitForIdle()
         rule.onNodeWithTag("play_standard").performClick() // loadout picker
         rule.waitForIdle()
     }

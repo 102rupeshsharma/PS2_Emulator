@@ -1,5 +1,24 @@
 # Release notes
 
+## 3.0.0 (versionCode 16), 2026-11-07: simple Bluetooth controller, button styles, combo buttons
+
+- **Simplified:** gyro aiming and PC Gaming Mode (Bluetooth keyboard + mouse, gyro mouse, PC
+  profiles, mode selection) are removed from the app, the tests and the README. The phone registers
+  only the gamepad descriptor again. Open Controller goes straight to the loadout picker.
+  If the PC was paired while "PC input" was on, remove the phone in Windows once and pair again.
+- **Button styles** (controller → Settings): **Real** (3D keys lit from above, domed sticks),
+  **Simple** (flat dark keys with a thin ring) and **Outline** (rings only, the fewest lit pixels).
+  **Face labels:** Y B A X or △ ○ ✕ □. Only the look changes; the HID buttons are the same, so
+  emulator bindings stay. Saved per loadout.
+- **Pure black background** on the controller and on every app screen (AMOLED pixels off).
+- **Combo buttons** (Edit → + Combo): each step holds any of the 12 buttons plus one D-pad direction.
+  One step = held together while pressed (sent in one report); several steps = played in order on
+  each tap, 30–300 ms per step, with a short release before a repeated button. Combos never cut a
+  button that is also held on the real control, and they release everything on screen change or
+  reset. Up to 12 added buttons/combos per loadout, 8 steps per combo.
+- Saved settings from older versions still load (gyro/PC fields are ignored).
+- Tests: 244 automated tests (242 passed, 2 skipped). Not yet checked on the phone.
+
 ## 2.1.0 (versionCode 15), 2026-11-07: PC input fix for new phones/laptops, black glass controllers
 
 - **Fix: "Online" but PC controls / gyro mouse did nothing** (reported on a Samsung phone + another

@@ -86,6 +86,10 @@ data class Appearance(
     val haptics: Boolean = true,
     /** Extra opacity per control (1 = fully visible), applied on top of [buttonOpacity]. */
     val controlOpacity: Map<ControlId, Float> = emptyMap(),
+    /** How the buttons are drawn (the background is always black). */
+    val buttonStyle: ButtonStyle = ButtonStyle.REAL,
+    /** What the four face buttons show. They always send the same HID buttons. */
+    val faceLabels: FaceLabels = FaceLabels.XBOX,
 ) {
     fun opacityOf(id: ControlId): Float =
         controlOpacity[id] ?: (if (id in ControlId.FACE_BUTTONS) controlOpacity[ControlId.FACE] else null) ?: 1f
@@ -105,6 +109,18 @@ data class Appearance(
     }
 }
 
+/** Button look. All styles send exactly the same buttons; only the drawing differs. */
+@Serializable
+enum class ButtonStyle(val label: String, val hint: String) {
+    REAL("Real", "3D buttons like a physical controller"),
+    SIMPLE("Simple", "Flat dark buttons with a thin ring"),
+    OUTLINE("Outline", "Rings only: the most battery-friendly"),
+}
+
+/** Face button labels (top, right, bottom, left): PlayStation symbols or Xbox letters. */
+@Serializable
+enum class FaceLabels(val label: String) { PLAYSTATION("\u25B3 \u25CB \u2715 \u25A1"), XBOX("Y B A X") }
+
 /**
  * A control moved/resized by the user. Centre is a fraction of the screen (0..1) so layouts
  * survive different screen sizes; [scale] multiplies the control's default size.
@@ -114,10 +130,20 @@ data class Placement(val cx: Float, val cy: Float, val scale: Float = 1f) {
     fun sanitized() = Placement(cx.finiteOr(0.5f).coerceIn(0f, 1f), cy.finiteOr(0.5f).coerceIn(0f, 1f), scale.finiteOr(1f).coerceIn(0.5f, 2f))
 }
 
+/** One step of a combo: buttons held together, optionally with a D-pad direction. */
+@Serializable
+data class ComboStep(val buttons: Set<ControllerButton> = emptySet(), val hat: Hat = Hat.NEUTRAL) {
+    val isEmpty: Boolean get() = buttons.isEmpty() && hat == Hat.NEUTRAL
+}
+
 /**
- * A button the user added in the layout editor (1.7.0). It sends one of the 12 gamepad buttons, so
- * the HID report never changes: it is a second place to press e.g. Cross or R3. Centre is a screen
- * fraction (0..1); [scale] multiplies the default extra-button size.
+ * A button the user added in the layout editor. Centre is a screen fraction (0..1); [scale]
+ * multiplies the default size. It only ever presses the existing 12 buttons / D-pad, so the HID
+ * report never changes.
+ *  - No [steps]: a second place to press [button] (e.g. a second Cross).
+ *  - One step: a COMBO pressed together while held (e.g. L1+R1).
+ *  - Several steps: a COMBO played in order on each tap (e.g. down, down-right, right + Square),
+ *    each step held [stepMs].
  */
 @Serializable
 data class ExtraButton(
@@ -126,52 +152,28 @@ data class ExtraButton(
     val cx: Float = 0.5f,
     val cy: Float = 0.5f,
     val scale: Float = 1f,
+    val steps: List<ComboStep> = emptyList(),
+    val stepMs: Int = DEFAULT_STEP_MS,
 ) {
+    val isCombo: Boolean get() = steps.isNotEmpty()
+    /** A combo with several steps plays as a sequence; one step is held together. */
+    val isSequence: Boolean get() = steps.size > 1
+
     fun sanitized() = copy(
         cx = cx.finiteOr(0.5f).coerceIn(0f, 1f),
         cy = cy.finiteOr(0.5f).coerceIn(0f, 1f),
         scale = scale.finiteOr(1f).coerceIn(0.5f, 2f),
+        steps = steps.filterNot { it.isEmpty }.take(MAX_STEPS),
+        stepMs = stepMs.coerceIn(MIN_STEP_MS, MAX_STEP_MS),
     )
-}
-
-/**
- * Gyroscope right stick: tilting the phone moves the right analog stick like a physical stick
- * (position-based: hold a tilt and the stick stays displaced; back to neutral and it centres).
- */
-@Serializable
-data class GyroSettings(
-    val enabled: Boolean = false,
-    /** Output multiplier after the dead zone. */
-    val sensitivity: Float = 1.0f,
-    /** Tilt (degrees from neutral) that gives full deflection. */
-    val maxTiltDeg: Float = 25f,
-    /** Tilt (degrees) ignored around neutral, so hand tremor never moves the camera. */
-    val deadZoneDeg: Float = 2f,
-    /** 0 = raw, 1 = heavy smoothing (time constant up to 0.2 s). */
-    val smoothing: Float = 0.25f,
-    val invertX: Boolean = false,
-    val invertY: Boolean = false,
-) {
-    fun sanitized(): GyroSettings {
-        val max = maxTiltDeg.finiteOr(25f).coerceIn(MIN_TILT, MAX_TILT)
-        return copy(
-            sensitivity = sensitivity.finiteOr(1f).coerceIn(0.25f, 3f),
-            maxTiltDeg = max,
-            deadZoneDeg = deadZoneDeg.finiteOr(2f).coerceIn(0f, minOf(MAX_DEAD_ZONE, max * 0.5f)),
-            smoothing = smoothing.finiteOr(0.25f).coerceIn(0f, 1f),
-        )
-    }
 
     companion object {
-        const val MIN_TILT = 5f
-        const val MAX_TILT = 60f
-        const val MAX_DEAD_ZONE = 10f
+        const val MAX_STEPS = 8
+        const val DEFAULT_STEP_MS = 80
+        const val MIN_STEP_MS = 30
+        const val MAX_STEP_MS = 300
     }
 }
-
-/** Calibrated neutral hold: gravity direction in SCREEN coordinates (unit vector). */
-@Serializable
-data class GyroNeutral(val x: Float, val y: Float, val z: Float)
 
 @Serializable
 data class ControllerProfile(
@@ -184,8 +186,7 @@ data class ControllerProfile(
     val right: StickSettings = StickSettings(),
     /** Only controls the user moved; everything else uses the default layout. */
     val placements: Map<ControlId, Placement> = emptyMap(),
-    val gyro: GyroSettings = GyroSettings(),
-    /** Buttons added by the user, each mapped to a gamepad button. */
+    /** Buttons and combo buttons added by the user. */
     val extraButtons: List<ExtraButton> = emptyList(),
 ) {
     fun sanitized() = copy(
@@ -194,7 +195,6 @@ data class ControllerProfile(
         left = left.sanitized(),
         right = right.sanitized(),
         placements = placements.mapValues { it.value.sanitized() },
-        gyro = gyro.sanitized(),
         extraButtons = extraButtons.distinctBy { it.id }.filter { it.id.isNotBlank() }.take(MAX_EXTRA_BUTTONS).map { it.sanitized() },
     )
 
@@ -202,7 +202,7 @@ data class ControllerProfile(
 
     companion object {
         const val MAX_NAME = 32
-        const val MAX_EXTRA_BUTTONS = 8
+        const val MAX_EXTRA_BUTTONS = 12
     }
 }
 
@@ -212,16 +212,6 @@ data class ProfileStore(
     val profiles: List<ControllerProfile>,
     /** Last host that reached STATE_CONNECTED (shown on the dashboard). */
     val lastConnection: LastConnection? = null,
-    /** Gyro neutral hold, shared by all profiles (it is about how you hold the phone). */
-    val gyroNeutral: GyroNeutral? = null,
-    /** PC Mode data: completely separate from the emulator profiles above. */
-    val pc: com.ps2gamepad.pc.PcStore = com.ps2gamepad.pc.PcStore(),
-    /** PC input (keyboard + mouse HID) enabled: registers the composite descriptor (needs one re-pair). */
-    val pcInputEnabled: Boolean = true,
-    /** Last mode chosen on the mode selection screen. */
-    val lastMode: GamingMode? = null,
-    /** Controller theme for both controllers: false = light soft UI (default), true = black. */
-    val darkControls: Boolean = false,
     /**
      * Battery saver while a controller is shown (default ON): 60 Hz screen instead of 90/120 Hz,
      * and 125 Hz Bluetooth reports. Brightness is left to the phone (2.1.0).
@@ -230,9 +220,6 @@ data class ProfileStore(
 ) {
     val active: ControllerProfile get() = profiles.firstOrNull { it.id == activeId } ?: profiles.first()
 }
-
-@Serializable
-enum class GamingMode(val label: String) { EMULATOR("Emulator Gaming"), PC("PC Gaming") }
 
 @Serializable
 data class LastConnection(val hostName: String, val epochMillis: Long, val address: String? = null)

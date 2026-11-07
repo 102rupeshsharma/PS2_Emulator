@@ -44,7 +44,7 @@ private val CardBottom = Color(0xFF161A28)
 /**
  * Shown every time the controller is opened: pick the loadout (per-game setup) to play with,
  * or create a new one (max 5). Each loadout keeps its own layout, sizes, opacity, style, stick
- * and gyro settings.
+ * and combo buttons.
  */
 @Composable
 fun LoadoutPickerScreen(vm: MainViewModel) {
@@ -57,7 +57,7 @@ fun LoadoutPickerScreen(vm: MainViewModel) {
         Text("${loadouts.size} / ${ProfileManager.MAX_LOADOUTS} loadouts", color = Palette.TextDim, fontSize = 13.sp, modifier = Modifier.testTag("loadoutCount"))
     }) {
         Text(
-            "Each loadout remembers its own button layout, sizes, opacity, style, sticks and gyro. Changes you make while playing are saved to the loadout in use.",
+            "Each loadout remembers its own button layout, sizes, opacity, button style, sticks and combo buttons. Changes you make while playing are saved to the loadout in use.",
             color = Palette.TextDim, fontSize = 12.sp,
         )
         LazyVerticalGrid(
@@ -71,7 +71,8 @@ fun LoadoutPickerScreen(vm: MainViewModel) {
                 }
             }
             items(loadouts, key = { it.id }) { p ->
-                LoadoutCard(vm, p, title = p.name, subtitle = (if (p.placements.isEmpty()) "Default layout" else "Custom layout") + if (p.gyro.enabled) " · Gyro" else "",
+                LoadoutCard(vm, p, title = p.name, subtitle = (if (p.placements.isEmpty()) "Default layout" else "Custom layout") +
+                    if (p.extraButtons.any { it.isCombo }) " · Combos" else "",
                     lastUsed = store.activeId == p.id, onDelete = { toDelete = p })
             }
             if (ProfileManager.canCreateLoadout(store)) {
@@ -103,7 +104,7 @@ private fun LoadoutCard(vm: MainViewModel, p: ControllerProfile, title: String, 
             .testTag("loadout_${p.id}"),
         verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        ControllerPreview(vm.input, p, Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)), dark = vm.profiles.collectAsStateWithLifecycle().value.darkControls)
+        ControllerPreview(vm.input, p, Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)))
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Text(title, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 15.sp, maxLines = 1)

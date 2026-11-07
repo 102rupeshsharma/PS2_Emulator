@@ -44,7 +44,6 @@ import com.ps2gamepad.ui.controller.ControllerPreview
 @Composable
 fun CustomizeScreen(vm: MainViewModel) {
     val profile by vm.activeProfile.collectAsStateWithLifecycle()
-    val dark = vm.profiles.collectAsStateWithLifecycle().value.darkControls
     val a = profile.appearance
     var stickTab by remember { mutableStateOf(Stick.LEFT) }
     var opacityTarget by remember { mutableStateOf(ControlId.CROSS) }
@@ -54,7 +53,7 @@ fun CustomizeScreen(vm: MainViewModel) {
             Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("Preview (same layout as the controller, not interactive)", color = Palette.TextDim, fontSize = 11.sp)
                 ControllerPreview(
-                    vm.input, profile, dark = dark, modifier =
+                    vm.input, profile, modifier =
                     Modifier.fillMaxWidth().border(1.dp, Palette.SurfaceHigh, RoundedCornerShape(8.dp)).testTag("preview"),
                 )
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

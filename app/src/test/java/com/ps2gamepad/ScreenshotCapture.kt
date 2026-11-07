@@ -11,6 +11,12 @@ import com.ps2gamepad.model.ControllerBackground
 import com.ps2gamepad.model.DiagnosticLog
 import com.ps2gamepad.model.HostDevice
 import com.ps2gamepad.model.Stick
+import com.ps2gamepad.model.ButtonStyle
+import com.ps2gamepad.model.FaceLabels
+import com.ps2gamepad.model.ExtraButton
+import com.ps2gamepad.model.ComboStep
+import com.ps2gamepad.model.ControllerButton
+import com.ps2gamepad.model.Hat
 import com.ps2gamepad.ui.App
 import com.ps2gamepad.ui.AppActions
 import com.ps2gamepad.ui.MainViewModel
@@ -50,9 +56,8 @@ class ScreenshotCapture {
     @Test fun captureScreens() {
         assumeTrue("run with -Pscreenshots", System.getProperty("screenshotDir") != null)
         val hid = FakeHid()
-        val motion = FakeMotionSource()
         val vm = MainViewModel(hid, MutableStateFlow(BluetoothState.ENABLED), { emptyList() }, DiagnosticLog(), listOf("screenshot"), { 0L },
-            batteryPercent = { 80 }, phoneNameControl = FakePhoneName(), motionSource = motion)
+            batteryPercent = { 80 }, phoneNameControl = FakePhoneName())
         rule.setContent { App(vm, AppActions({}, {}, {}, {})) }
         val host = HostDevice("00:00:00:00:00:01", "LAPTOP (mock)")
         shoot("00_home_permission")
@@ -65,45 +70,36 @@ class ScreenshotCapture {
         shoot("02_home_connected")
         rule.runOnIdle {
             vm.createLoadout("God of War"); vm.updateAppearance { it.copy(buttonScale = 1.2f) }; vm.setEditMode(false)
-            vm.createLoadout("GTA San Andreas"); vm.updateAppearance { it.copy(buttonOpacity = 0.7f) }
-            vm.updateGyro { it.copy(enabled = true) }; vm.setEditMode(false)
-            vm.chooseMode(com.ps2gamepad.model.GamingMode.EMULATOR)
+            vm.createLoadout("Tekken 5"); vm.updateAppearance { it.copy(buttonStyle = ButtonStyle.SIMPLE) }; vm.setEditMode(false)
+            vm.openController()
         }
         shoot("07_loadouts")
-        rule.runOnIdle { vm.playLoadout(com.ps2gamepad.settings.DefaultProfiles.STANDARD); vm.updateGyro { it.copy(enabled = false) } }
-        val n = com.ps2gamepad.motion.Vec3(0f, 0.7071f, 0.7071f)
-        rule.runOnIdle {
-            vm.onForeground(); vm.updateGyro { it.copy(enabled = true) }; vm.navigate(Screen.GYRO)
-            motion.hold(n, 30); vm.gyroRecenter(); motion.hold(n, 5); motion.hold(tiltedUp(n, 12f, -9f), 60)
-        }
-        shoot("05_gyro_screen")
-        rule.runOnIdle { vm.navigate(Screen.CONTROLLER); motion.hold(tiltedUp(n, 12f, -9f), 5) }
-        shoot("06_controller_gyro")
+        rule.runOnIdle { vm.playLoadout(com.ps2gamepad.settings.DefaultProfiles.STANDARD) }
+        shoot("11_controller_real")
         rule.onNodeWithTag("chip_Settings").performClick()
         shoot("08_controller_settings")
         rule.onNodeWithTag("chip_Close").performClick()
-        rule.runOnIdle { vm.updateGyro { it.copy(enabled = false) } }
-        rule.runOnIdle { vm.navigate(Screen.DASHBOARD) }
-        shoot("10_dashboard")
-        rule.runOnIdle { vm.navigate(Screen.CONTROLLER) }
-        shoot("11_controller_default")
+        rule.runOnIdle { vm.updateAppearance { it.copy(faceLabels = FaceLabels.PLAYSTATION) } }
+        shoot("11b_controller_real_playstation")
+        rule.runOnIdle { vm.updateAppearance { it.copy(buttonStyle = ButtonStyle.SIMPLE, faceLabels = FaceLabels.XBOX) } }
+        shoot("11c_controller_simple")
+        rule.runOnIdle { vm.updateAppearance { it.copy(buttonStyle = ButtonStyle.OUTLINE) } }
+        shoot("11d_controller_outline")
+        rule.runOnIdle { vm.resetAppearance() }
+        val combos = listOf(
+            ExtraButton("c1", ControllerButton.CROSS, 0.5f, 0.2f, steps = listOf(ComboStep(setOf(ControllerButton.L1, ControllerButton.R1)))),
+            ExtraButton("c2", ControllerButton.CROSS, 0.5f, 0.62f, steps = listOf(
+                ComboStep(hat = Hat.DOWN), ComboStep(hat = Hat.DOWN_RIGHT), ComboStep(setOf(ControllerButton.SQUARE), Hat.RIGHT),
+            )),
+        )
+        rule.runOnIdle { vm.saveLayout(emptyMap(), combos) }
+        shoot("19_controller_combos")
         rule.runOnIdle { vm.setEditMode(true) }
-        shoot("12_edit_layout")
-        rule.runOnIdle {
-            vm.setEditMode(false)
-            vm.saveLayout(emptyMap(), listOf(com.ps2gamepad.model.ExtraButton("x1", com.ps2gamepad.model.ControllerButton.CROSS, 0.62f, 0.2f)))
-        }
-        shoot("19_controller_added_button")
-        rule.runOnIdle { vm.saveLayout(emptyMap(), emptyList()); vm.setDarkControls(true) }
-        shoot("19b_controller_black_theme")
-        rule.runOnIdle { vm.setDarkControls(false) }
-        rule.runOnIdle {
-            vm.setEditMode(false)
-            vm.updateAppearance { it.copy(buttonScale = 1.15f, buttonOpacity = 0.7f, background = ControllerBackground.BLUE, showLabels = false) }
-            vm.navigate(Screen.CONTROLLER)
-        }
-        shoot("13_controller_customized")
-        rule.runOnIdle { vm.resetAppearance(); vm.navigate(Screen.CUSTOMIZE) }
+        rule.onNodeWithTag("editx_c2").performClick()
+        shoot("12_edit_combo")
+        rule.runOnIdle { vm.setEditMode(false); vm.saveLayout(emptyMap(), emptyList()); vm.navigate(Screen.DASHBOARD) }
+        shoot("10_dashboard")
+        rule.runOnIdle { vm.navigate(Screen.CUSTOMIZE) }
         shoot("14_customize")
         rule.runOnIdle { vm.navigate(Screen.PROFILES) }
         shoot("15_profiles")
@@ -113,16 +109,5 @@ class ScreenshotCapture {
         shoot("17_diagnostics")
         rule.runOnIdle { vm.navigate(Screen.CONNECTION) }
         shoot("18_connection")
-        rule.runOnIdle { vm.openController() }
-        shoot("20_mode_select")
-        rule.runOnIdle { vm.setPcInputEnabled(true); vm.chooseMode(com.ps2gamepad.model.GamingMode.PC) }
-        shoot("21_pc_controller")
-        rule.runOnIdle { vm.setDarkControls(true) }
-        shoot("21b_pc_controller_black")
-        rule.runOnIdle { vm.setDarkControls(false) }
-        rule.runOnIdle { vm.setPcEditMode(true) }
-        shoot("22_pc_edit")
-        rule.runOnIdle { vm.setPcEditMode(false); vm.navigate(Screen.PC_PROFILES) }
-        shoot("23_pc_profiles")
     }
 }

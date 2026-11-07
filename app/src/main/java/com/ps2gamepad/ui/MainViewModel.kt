@@ -37,7 +37,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
-enum class Screen { HOME, MODE_SELECT, PC_CONTROLLER, PC_PROFILES, LOADOUTS, GYRO, DASHBOARD, CONNECTION, CONTROLLER, DIAGNOSTICS, CUSTOMIZE, PROFILES, CALIBRATION }
+enum class Screen { HOME, LOADOUTS, DASHBOARD, CONNECTION, CONTROLLER, DIAGNOSTICS, CUSTOMIZE, PROFILES, CALIBRATION }
 
 /** A controller session, for measured (not estimated) battery and duration figures. */
 data class Session(val startUptimeMs: Long, val startBattery: Int?)
@@ -61,9 +61,6 @@ class MainViewModel(
     private val newId: () -> String = { java.util.UUID.randomUUID().toString().take(8) },
     private val phoneNameControl: com.ps2gamepad.bluetooth.PhoneNameControl? = null,
     private val autoConnectDelayMs: Long = 1_500,
-    private val motionSource: com.ps2gamepad.motion.MotionSource? = null,
-    /** Where the PC Mode mouse ticker runs (tests pass their dispatcher). */
-    private val pcTickContext: kotlin.coroutines.CoroutineContext = kotlinx.coroutines.Dispatchers.Default,
 ) : ViewModel() {
 
     private val uptime = uptimeMs
@@ -100,277 +97,8 @@ class MainViewModel(
 
     fun uptimeNow(): Long = uptime()
 
-    // ------------------------------------------------------------------ gyroscope right stick
-
-    val gyroStatus: com.ps2gamepad.motion.MotionStatus = motionSource?.status ?: com.ps2gamepad.motion.MotionStatus(false, false)
-    private val _gyroReading = MutableStateFlow(com.ps2gamepad.motion.GyroReading.NONE)
-    /** Latest gyro reading (tilt, stick vector, status) for the gyro screen. */
-    val gyroReading: StateFlow<com.ps2gamepad.motion.GyroReading> = _gyroReading.asStateFlow()
-    private val _gyroSending = MutableStateFlow(false)
-    /** True while the gyro drives the right stick that goes to the PC. */
-    val gyroSending: StateFlow<Boolean> = _gyroSending.asStateFlow()
-    @Volatile private var gyroEngine: com.ps2gamepad.motion.GyroEngine? = null
-    private var windowFocused = true
-    /** Last right-stick axes forwarded from the gyro (jitter filter). */
-    @Volatile private var lastGyroAxes = 0 to 0
-    /** Input reset counter seen at the last gyro forward: a reset (screen change, reconnect...) forces a resend. */
-    @Volatile private var lastGyroEpoch = -1
-
-    fun updateGyro(f: (com.ps2gamepad.model.GyroSettings) -> com.ps2gamepad.model.GyroSettings) {
-        settings.update { s -> ProfileManager.updateActive(s) { it.copy(gyro = f(it.gyro)) } }
-        refreshMotion()
-    }
-
-    /** Use the current hold as neutral right now. */
-    fun gyroRecenter() { gyroEngine?.requestRecenter(); log.add("Gyro: recentred") }
-
-    // ------------------------------------------------------------------ PC Gaming Mode
-
-    private val pcSink = object : com.ps2gamepad.pc.PcReportSink {
-        // Keyboard/mouse reports exist only with the PC input (composite) descriptor.
-        override fun keyboard(report: ByteArray, eventUptimeMs: Long) =
-            profiles.value.pcInputEnabled && hid.sendInputReport(com.ps2gamepad.bluetooth.HidDescriptor.KEYBOARD_REPORT_ID, report, eventUptimeMs)
-        override fun mouse(report: ByteArray, eventUptimeMs: Long) =
-            profiles.value.pcInputEnabled && hid.sendInputReport(com.ps2gamepad.bluetooth.HidDescriptor.MOUSE_REPORT_ID, report, eventUptimeMs)
-    }
-    val pcInput = com.ps2gamepad.pc.PcInputEngine(pcSink, uptimeMs)
-
-    private val _pcEditMode = MutableStateFlow(false)
-    val pcEditMode: StateFlow<Boolean> = _pcEditMode.asStateFlow()
-    private val _pcGyroPaused = MutableStateFlow(false)
-    /** Gyro mouse temporarily stopped by the on-screen toggle (controller stays connected). */
-    val pcGyroPaused: StateFlow<Boolean> = _pcGyroPaused.asStateFlow()
-    private val _pcGyroRunning = MutableStateFlow(false)
-    val pcGyroRunning: StateFlow<Boolean> = _pcGyroRunning.asStateFlow()
-    private val _pcResetEpoch = MutableStateFlow(0)
-    /** Bumped by every PC release-all: controls drop fingers that were down (no stale presses). */
-    val pcResetEpoch: StateFlow<Int> = _pcResetEpoch.asStateFlow()
-    @Volatile private var gyroMouse: com.ps2gamepad.pc.GyroMouseEngine? = null
-    /** Right-stick mouse speed (counts/s), applied by the ticker. */
-    @Volatile private var pcStickVelocity = 0f to 0f
-    @Volatile private var pcWheelHeld = 0
-    private var pcTickJob: Job? = null
-    /** Wakes the mouse ticker when the right stick moves or a wheel button is pressed. */
-    private val pcWake = kotlinx.coroutines.channels.Channel<Unit>(kotlinx.coroutines.channels.Channel.CONFLATED)
-
-    val pcStore: com.ps2gamepad.pc.PcStore get() = profiles.value.pc
-
-    fun updatePc(f: (com.ps2gamepad.pc.PcStore) -> com.ps2gamepad.pc.PcStore) {
-        settings.update { it.copy(pc = f(it.pc)) }
-        refreshMotion()
-    }
-
-    /** Mode selection: remembered, then opens that mode. */
-    fun chooseMode(mode: com.ps2gamepad.model.GamingMode) {
-        settings.update { it.copy(lastMode = mode) }
-        pcReleaseAll("mode switch")
-        navigate(if (mode == com.ps2gamepad.model.GamingMode.EMULATOR) Screen.LOADOUTS else Screen.PC_CONTROLLER)
-    }
-
-    /**
-     * Turns PC input (keyboard + mouse HID) on/off. The descriptor changes, so the app re-registers;
-     * Windows must remove the phone and pair again once (it caches descriptors).
-     */
-    fun setPcInputEnabled(on: Boolean) {
-        if (on == profiles.value.pcInputEnabled) return
-        pcReleaseAll("PC input " + if (on) "enabled" else "disabled")
-        settings.update { it.copy(pcInputEnabled = on) }
-        log.add(if (on) "PC input enabled: re-registering as gamepad + keyboard + mouse. Remove the phone in Windows Bluetooth and pair again once."
-                else "PC input disabled: re-registering as gamepad only. Re-pair once in Windows.")
-        val reg = hidState.value.registration
-        if (reg == RegistrationState.Registered || reg == RegistrationState.Registering) {
-            hid.unregister()
-            wantRegistered = true
-            autoRegisterAttempts = 0
-            registerInternal()
-        }
-        refreshMotion()
-    }
-
-    /** A PC control was pressed (touch down). */
-    fun pcPress(c: com.ps2gamepad.pc.PcControl, t: Long = uptime()) {
-        when (c.action.type) {
-            com.ps2gamepad.pc.PcActionType.KEY, com.ps2gamepad.pc.PcActionType.MOUSE -> pcInput.press(c.id, c.action, t)
-            com.ps2gamepad.pc.PcActionType.WHEEL_UP -> { pcInput.wheel(1, t); pcWheelHeld = 1; wheelRepeatAt = uptime() + WHEEL_REPEAT_DELAY_MS; pcWake.trySend(Unit) }
-            com.ps2gamepad.pc.PcActionType.WHEEL_DOWN -> { pcInput.wheel(-1, t); pcWheelHeld = -1; wheelRepeatAt = uptime() + WHEEL_REPEAT_DELAY_MS; pcWake.trySend(Unit) }
-            com.ps2gamepad.pc.PcActionType.GYRO_TOGGLE -> togglePcGyro()
-            com.ps2gamepad.pc.PcActionType.GYRO_RECENTER -> pcGyroRecenter()
-        }
-    }
-
-    /** A PC control was released (touch up / cancel). */
-    fun pcRelease(c: com.ps2gamepad.pc.PcControl, t: Long = uptime()) {
-        pcInput.release(c.id, t)
-        if (c.action.type == com.ps2gamepad.pc.PcActionType.WHEEL_UP || c.action.type == com.ps2gamepad.pc.PcActionType.WHEEL_DOWN) pcWheelHeld = 0
-    }
-
-    /** Left stick: the movement keys currently held. */
-    fun pcMoveKeys(c: com.ps2gamepad.pc.PcControl, usages: Set<Int>, t: Long = uptime()) = pcInput.setHeldKeys(c.id, usages, t)
-
-    /** Right stick: deflection (-1..1) -> mouse speed. */
-    fun pcMouseStick(x: Float, y: Float) {
-        val speed = pcStore.active.mouse.stickMouseSpeed
-        pcStickVelocity = (x * speed) to (y * speed)
-        if (x != 0f || y != 0f) pcWake.trySend(Unit)
-    }
-
-    fun togglePcGyro() {
-        _pcGyroPaused.value = !_pcGyroPaused.value
-        log.add("Gyro mouse " + if (_pcGyroPaused.value) "paused" else "resumed")
-        refreshMotion()
-    }
-
-    fun pcGyroRecenter() { gyroMouse?.requestRecenter(); log.add("Gyro mouse: recentred") }
-    fun pcGyroCalibrate() { gyroMouse?.requestCalibration(); log.add("Gyro mouse: calibrating, keep the phone still") }
-
-    fun setPcEditMode(on: Boolean) {
-        pcReleaseAll("PC edit mode")
-        _pcEditMode.value = on
-        refreshMotion()
-        refreshPcTicker()
-    }
-
-    /** Releases every PC key/mouse button and stops movement; controls drop their fingers. */
-    fun pcReleaseAll(reason: String) {
-        pcStickVelocity = 0f to 0f
-        pcWheelHeld = 0
-        val wasActive = !pcInput.state.value.idle
-        pcInput.releaseAll(uptime())
-        _pcResetEpoch.value = _pcResetEpoch.value + 1
-        if (wasActive) log.add("PC input released ($reason)")
-    }
-
-    private var wheelRepeatAt = 0L
-
-    /** Mouse ticker: stick mouse movement, wheel auto-repeat. Runs only while the PC controller is shown. */
-    private fun refreshPcTicker() {
-        val run = _screen.value == Screen.PC_CONTROLLER && !_pcEditMode.value
-        if (run && pcTickJob == null) {
-            pcTickJob = viewModelScope.launch(pcTickContext) {
-                var last = uptime()
-                while (true) {
-                    // Idle (stick centred, no wheel held): sleep until woken, no CPU or battery use.
-                    if (pcStickVelocity.first == 0f && pcStickVelocity.second == 0f && pcWheelHeld == 0) {
-                        pcInput.flushMotion(uptime())
-                        pcWake.receive()
-                        last = uptime()
-                    }
-                    delay(PC_TICK_MS)
-                    val now = uptime()
-                    val dt = ((now - last).coerceIn(0, 50)) / 1000f
-                    last = now
-                    val (vx, vy) = pcStickVelocity
-                    if (vx != 0f || vy != 0f) pcInput.addMotion(vx * dt, vy * dt)
-                    pcInput.flushMotion(now)
-                    val w = pcWheelHeld
-                    if (w != 0 && now >= wheelRepeatAt) { pcInput.wheel(w, now); wheelRepeatAt = now + WHEEL_REPEAT_MS }
-                }
-            }
-        } else if (!run && pcTickJob != null) {
-            pcTickJob?.cancel(); pcTickJob = null
-        }
-    }
-
-    /** Sensor thread: gyro mouse. */
-    private fun onPcMotionSample(m: com.ps2gamepad.pc.GyroMouseEngine, sample: com.ps2gamepad.motion.MotionSample) {
-        if (m !== gyroMouse) return
-        val (dx, dy) = m.onSample(sample) ?: return
-        if (dx == 0f && dy == 0f) return
-        pcInput.addMotion(dx, dy)
-        pcInput.flushMotion(uptime())
-    }
-
-    /** Average the hold for 1.5 s (keep still) and use it as neutral. */
-    fun gyroCalibrate() { gyroEngine?.requestCalibration(); log.add("Gyro: calibrating, hold still") }
-
-    /** Window focus is back (after a dialog, the notification shade...). */
-    fun onFocusGained() { windowFocused = true; refreshMotion() }
-
-    /**
-     * Starts/stops the sensors and decides whether the gyro drives the right stick. The sensors run
-     * only on the controller (gyro on) and on the gyro test screen, with the app visible and focused.
-     * Whenever the gyro stops driving the stick, a centred right stick is sent.
-     */
-    fun refreshMotion() {
-        val source = motionSource ?: return
-        val store = settings.store.value
-        val gyro = store.active.gyro
-        val screen = _screen.value
-        val visible = inForeground && windowFocused
-        val usable = source.status.usable
-        // Emulator gyro right stick (rules unchanged)
-        val send = gyro.enabled && visible && usable &&
-            ((screen == Screen.CONTROLLER && !_editMode.value) || screen == Screen.GYRO)
-        val runStick = usable && visible && (send || screen == Screen.GYRO)
-        // PC Mode gyro mouse
-        val pcMouse = store.pc.active.mouse
-        val runMouse = usable && visible && screen == Screen.PC_CONTROLLER && !_pcEditMode.value &&
-            pcMouse.gyroEnabled && !_pcGyroPaused.value && store.pcInputEnabled
-
-        if (_gyroSending.value && !send) {
-            _gyroSending.value = false
-            input.setStick(Stick.RIGHT, com.ps2gamepad.controller.StickVector.ZERO)
-            lastGyroAxes = 0 to 0
-        }
-        val want = when { runStick -> MotionConsumer.STICK; runMouse -> MotionConsumer.MOUSE; else -> MotionConsumer.NONE }
-        if (want != motionConsumer) {
-            if (motionConsumer != MotionConsumer.NONE) {
-                source.stop()
-                gyroEngine = null
-                gyroMouse = null
-                _gyroReading.value = com.ps2gamepad.motion.GyroReading.NONE
-            }
-            motionConsumer = want
-            when (want) {
-                MotionConsumer.STICK -> {
-                    val engine = com.ps2gamepad.motion.GyroEngine(store.gyroNeutral)
-                    engine.settings = gyro
-                    gyroEngine = engine
-                    if (!source.start { sample -> onMotionSample(engine, sample) }) { gyroEngine = null; motionConsumer = MotionConsumer.NONE; log.add("Gyro: sensors not available") }
-                }
-                MotionConsumer.MOUSE -> {
-                    val m = com.ps2gamepad.pc.GyroMouseEngine()
-                    m.settings = pcMouse
-                    gyroMouse = m
-                    if (!source.start { sample -> onPcMotionSample(m, sample) }) { gyroMouse = null; motionConsumer = MotionConsumer.NONE; log.add("Gyro mouse: sensors not available") }
-                }
-                MotionConsumer.NONE -> Unit
-            }
-        }
-        gyroEngine?.settings = gyro
-        gyroMouse?.settings = pcMouse
-        _pcGyroRunning.value = gyroMouse != null
-        if (send && !_gyroSending.value) lastGyroAxes = Int.MIN_VALUE to Int.MIN_VALUE // force the first value out
-        _gyroSending.value = send && gyroEngine != null
-    }
-
-    private enum class MotionConsumer { NONE, STICK, MOUSE }
-    @Volatile private var motionConsumer = MotionConsumer.NONE
-
-    /** Sensor thread. */
-    private fun onMotionSample(engine: com.ps2gamepad.motion.GyroEngine, sample: com.ps2gamepad.motion.MotionSample) {
-        if (engine !== gyroEngine) return // stopped meanwhile
-        val reading = engine.onSample(sample) { neutral ->
-            viewModelScope.launch { settings.update { it.copy(gyroNeutral = neutral) } }
-        } ?: return
-        _gyroReading.value = reading
-        if (!_gyroSending.value) return
-        val ax = com.ps2gamepad.controller.StickMath.toAxis(reading.stick.x)
-        val ay = com.ps2gamepad.controller.StickMath.toAxis(reading.stick.y)
-        val (lx, ly) = lastGyroAxes
-        val epoch = input.resetEpoch.value
-        // Sensor noise makes the last bit flicker: send only real movement (>= 2 counts), and
-        // always send centre and full deflection exactly. After any input reset (which centred the
-        // right stick) the current tilt is sent again even if the phone did not move.
-        val changed = lx == Int.MIN_VALUE || epoch != lastGyroEpoch ||
-            com.ps2gamepad.controller.StickMath.axisChangedSignificantly(lx, ax, GYRO_AXIS_THRESHOLD) ||
-            com.ps2gamepad.controller.StickMath.axisChangedSignificantly(ly, ay, GYRO_AXIS_THRESHOLD)
-        if (changed) {
-            lastGyroAxes = ax to ay
-            lastGyroEpoch = epoch
-            input.setStick(Stick.RIGHT, reading.stick)
-        }
-    }
+    /** Window focus is back (after a dialog, the notification shade...). Nothing to restart any more. */
+    fun onFocusGained() = Unit
 
     // ------------------------------------------------------------------ simple mode (auto start / connect / name)
 
@@ -478,7 +206,6 @@ class MainViewModel(
     /** Activity resumed. The stack unregisters HID apps that leave the foreground, so restore it. */
     fun onForeground() {
         inForeground = true
-        refreshMotion()
         refreshBondedHosts()
         if (wantRegistered && hidState.value.registration == RegistrationState.NotRegistered) {
             log.add("Back in foreground: HID registration was dropped by the system, registering again")
@@ -489,16 +216,11 @@ class MainViewModel(
     /** Activity stopped (not visible). Android drops HID registrations of background apps. */
     fun onBackground() {
         inForeground = false
-        if (_screen.value == Screen.PC_CONTROLLER || !pcInput.state.value.idle) pcReleaseAll("app in background")
-        refreshMotion()
         input.releaseAll()
     }
 
     /** Activity paused / lost window focus: never leave buttons held on the host. */
     fun onInterrupted(reason: String) {
-        windowFocused = false
-        if (_screen.value == Screen.PC_CONTROLLER || !pcInput.state.value.idle) pcReleaseAll(reason)
-        refreshMotion()
         if (input.state.value != GamepadState.NEUTRAL || input.activePointers.value > 0) {
             log.add("Input interrupted ($reason): all inputs released")
         }
@@ -524,12 +246,7 @@ class MainViewModel(
         registerInternal()
     }
 
-    /**
-     * Set when a registration was requested before the saved settings were loaded. Registering then
-     * would use the DEFAULT "PC input" value instead of the saved one: with PC input ON the phone was
-     * registered as a plain gamepad, so Windows showed "Online" but keyboard/mouse/gyro-mouse
-     * reports were refused (seen on slower phones, e.g. Samsung). Fixed in 2.1.0.
-     */
+    /** Set when a registration was requested before the saved settings were loaded (registered once they are). */
     private var registerWhenLoaded = false
 
     private fun registerInternal() {
@@ -537,11 +254,7 @@ class MainViewModel(
             bluetoothState.value != BluetoothState.ENABLED -> log.add("Cannot register: ${bluetoothState.value.label}")
             permission.value != PermissionState.GRANTED -> log.add("Cannot register: Bluetooth permission required")
             !settings.loaded.value -> { registerWhenLoaded = true; log.add("Waiting for saved settings before registering...") }
-            else -> {
-                val composite = profiles.value.pcInputEnabled
-                log.add(if (composite) "Registering HID gamepad + keyboard + mouse..." else "Registering HID gamepad...")
-                hid.register(autoConnectPlugged = !userDisconnected, composite = composite)
-            }
+            else -> { log.add("Registering HID gamepad..."); hid.register(autoConnectPlugged = !userDisconnected) }
         }
     }
 
@@ -607,10 +320,7 @@ class MainViewModel(
     fun savePlacements(placements: Map<ControlId, Placement>) =
         settings.update { s -> ProfileManager.updateActive(s) { it.copy(placements = placements) } }
 
-    /** Light or black soft-UI theme, shared by the Emulator and PC controllers. */
-    fun setDarkControls(on: Boolean) = settings.update { it.copy(darkControls = on) }
-
-    /** Battery saver (screen 60 Hz + dimmed while playing, 125 Hz reports). */
+    /** Battery saver (60 Hz screen and 125 Hz reports while playing). */
     fun setBatterySaver(on: Boolean) {
         settings.update { it.copy(batterySaver = on) }
         hid.setPowerSaving(on)
@@ -630,7 +340,6 @@ class MainViewModel(
     fun switchProfile(id: String) {
         input.releaseAll()
         settings.update { ProfileManager.switchTo(it, id) }
-        refreshMotion()
     }
     fun createProfile(name: String) {
         if (!ProfileManager.canCreateLoadout(profiles.value)) { log.add(LOADOUT_LIMIT_MESSAGE); return }
@@ -647,9 +356,8 @@ class MainViewModel(
     val loadouts: List<ControllerProfile> get() = ProfileManager.loadouts(profiles.value)
     val canCreateLoadout: Boolean get() = ProfileManager.canCreateLoadout(profiles.value)
 
-    /** "Open Controller" always goes through the loadout picker. */
-    /** "Open Controller" asks for the gaming mode first (Emulator -> loadout picker, PC -> PC controller). */
-    fun openController() = navigate(Screen.MODE_SELECT)
+    /** "Open Controller" goes through the loadout picker. */
+    fun openController() = navigate(Screen.LOADOUTS)
 
     /** Play with [id]: make it active and open the controller. */
     fun playLoadout(id: String) {
@@ -668,7 +376,6 @@ class MainViewModel(
         log.add("Loadout \"${profiles.value.active.name}\" created")
         navigate(Screen.CONTROLLER)
         setEditMode(true)
-        refreshMotion()
         return true
     }
 
@@ -676,7 +383,6 @@ class MainViewModel(
         val name = profiles.value.profiles.firstOrNull { it.id == id }?.name
         settings.update { ProfileManager.delete(it, id) }
         log.add("Loadout \"$name\" deleted")
-        refreshMotion()
     }
     fun renameProfile(id: String, name: String) = settings.update { ProfileManager.rename(it, id, name) }
     fun deleteProfile(id: String) = settings.update { ProfileManager.delete(it, id) }
@@ -691,7 +397,6 @@ class MainViewModel(
     fun setEditMode(on: Boolean) {
         input.releaseAll() // nothing may stay held while controls move
         _editMode.value = on
-        refreshMotion()
     }
 
     /** Overlapping controls in the active layout for a screen of [w] x [h] dp. */
@@ -709,13 +414,9 @@ class MainViewModel(
 
     fun navigate(to: Screen) {
         if (to != _screen.value) input.releaseAll()
-        if (to != _screen.value && (to == Screen.PC_CONTROLLER || _screen.value == Screen.PC_CONTROLLER)) pcReleaseAll("screen change")
-        if (to != Screen.PC_CONTROLLER) _pcEditMode.value = false
         if (to != Screen.CONTROLLER) _editMode.value = false
         if (to == Screen.CONTROLLER && _session.value == null) _session.value = Session(uptime(), batteryPercent())
         _screen.value = to
-        refreshMotion()
-        refreshPcTicker()
     }
 
     fun resetSession() { _session.value = Session(uptime(), batteryPercent()) }
@@ -777,14 +478,11 @@ class MainViewModel(
             lastHost = s.connectedHost
             // Fresh baseline for the host (HidDeviceManager also queues one).
             input.releaseAll()
-            if (s.isConnected && profiles.value.pcInputEnabled && _screen.value == Screen.PC_CONTROLLER) pcReleaseAll("connected")
         } else if (wasConnected && !s.isConnected) {
             _connectedSince.value = null
             // Stop, clear touches, reset state. The sink already drops reports while disconnected.
             input.releaseAll()
             input.onHostLost()
-            pcReleaseAll("connection lost")
-            pcInput.onHostLost()
             log.add("WARNING: host connection lost - inputs reset")
             scheduleReconnect()
         }
@@ -807,20 +505,11 @@ class MainViewModel(
     }
 
     companion object {
-        const val PC_TICK_MS = 8L
-        const val WHEEL_REPEAT_DELAY_MS = 350L
-        const val WHEEL_REPEAT_MS = 110L
         const val LOADOUT_LIMIT_MESSAGE = "You already have 5 loadouts. Delete one to create a new one."
         const val MAX_AUTO_REGISTER = 3
-        /** Gyro jitter filter: right-stick change (HID counts) needed before a new report. */
-        const val GYRO_AXIS_THRESHOLD = 2
     }
 
     override fun onCleared() {
-        pcTickJob?.cancel()
-        pcInput.releaseAll()
-        motionSource?.stop()
-        gyroEngine = null
         reconnectJob?.cancel()
         input.releaseAll()
         cleanup()

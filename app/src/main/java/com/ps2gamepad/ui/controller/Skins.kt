@@ -43,11 +43,12 @@ object Skins {
         screen = t.bg, bodyTop = t.bg, bodyBottom = t.bg, bodyEdge = t.bg,
         centerPanel = t.key, key = t.key, keyPressed = t.pressed, keyEdge = t.ring,
         label = t.label, labelPressed = Color.White, faceMarks = FaceMarks.LETTERS,
-        faceColors = FaceColors.COLORS, faceLetters = FaceColors.LETTERS, faceFilled = false,
+        faceColors = List(4) { FaceColors.color(com.ps2gamepad.model.FaceLabels.XBOX, it) },
+        faceLetters = List(4) { FaceColors.text(com.ps2gamepad.model.FaceLabels.XBOX, it) }, faceFilled = false,
         stickBase = t.key, stickKnobLight = t.pressed, stickKnobDark = t.key, accent = t.accent,
     )
 
-    val PS2 = of(NeuThemes.GLASS)
+    val PS2 = of(NeuThemes.BLACK)
 }
 
 val LocalSkin = staticCompositionLocalOf { Skins.PS2 }

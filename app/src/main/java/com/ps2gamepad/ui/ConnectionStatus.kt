@@ -23,7 +23,7 @@ import com.ps2gamepad.model.PermissionState
 import com.ps2gamepad.model.RegistrationState
 
 object Palette {
-    val Background = Color(0xFF101114)
+    val Background = Color.Black // pure black everywhere: AMOLED pixels off
     val Surface = Color(0xFF1B1D22)
     val SurfaceHigh = Color(0xFF262931)
     val Text = Color(0xFFE6E7EB)

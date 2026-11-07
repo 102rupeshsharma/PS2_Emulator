@@ -1,5 +1,20 @@
 # Release notes
 
+## 3.3.0 (versionCode 19), 2026-11-08: portrait start screen, one Connect button, no automatic connecting
+
+- **Start screen in portrait** (the controller and every other screen stay landscape). Same content as
+  before, in one column: status, one big button, "Shown on your PC as", controller preview, tiles.
+- **One Connect button, nothing automatic before it.** Opening the app only names the phone
+  "PadLink"; the gamepad is not started and nothing connects until you tap **Connect**. Connect then:
+  - starts the gamepad and connects to the laptop used last, or
+  - if no laptop is known yet, makes the phone visible so the laptop can pair.
+  The status shows "Connecting…" (up to 20 s), then **Open Controller** once connected. The other
+  "Connect to <laptop>" and "Make phone visible to PC" buttons became this one Connect button;
+  "Pair a laptop again / a new laptop" stays as a small link under it.
+- **Unchanged after Connect:** the gamepad comes back when you return to the app, and a lost
+  connection is retried, exactly as before.
+- Tests: 278 automated tests (275 passed, 3 skipped). Not yet checked on the phone.
+
 ## 3.2.0 (versionCode 18), 2026-11-08: Settings fix, sticks stop at once, faster buttons, user guide
 
 - **Fix: Settings panel did nothing while playing** (style, face labels, switches, sliders, scrolling).

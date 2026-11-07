@@ -176,18 +176,48 @@ class MainViewModel(
             ?: computerHosts.singleOrNull()
 
     /**
-     * Called whenever the app comes to the foreground (and after permissions are granted): names the
-     * phone "PadLink" and registers the gamepad, so the user only has to open the app.
+     * Called whenever the app comes to the foreground (and after permissions are granted). 3.3.0:
+     * it only names the phone "PadLink". Nothing connects until the user taps Connect
+     * ([connectNow]). After that, the existing behaviour stays: the gamepad is re-registered when
+     * the app comes back, and a lost connection is retried.
      */
     fun autoStart() {
         if (permission.value != PermissionState.GRANTED || bluetoothState.value != BluetoothState.ENABLED) return
         applyPhoneName()
-        if (userUnregistered) return
+    }
+
+    private val _connectRequested = MutableStateFlow(false)
+    /** The user tapped Connect and the connection is not established yet (shown as "Connecting…"). */
+    val connectRequested: StateFlow<Boolean> = _connectRequested.asStateFlow()
+    private var connectTimeoutJob: Job? = null
+
+    /** True once the user started the gamepad with Connect in this app session. */
+    val started: Boolean get() = wantRegistered
+
+    /**
+     * The home screen's Connect button: starts the gamepad and connects to the laptop used last.
+     * Returns true when no laptop is known yet, so the caller makes the phone visible for pairing.
+     */
+    fun connectNow(): Boolean {
+        if (permission.value != PermissionState.GRANTED || bluetoothState.value != BluetoothState.ENABLED) return false
+        applyPhoneName()
+        userUnregistered = false
+        userDisconnected = false
         wantRegistered = true
-        if (hidState.value.registration == RegistrationState.NotRegistered) {
-            log.add("Auto start: registering gamepad")
-            registerInternal()
+        autoRegisterAttempts = 0
+        _connectRequested.value = true
+        connectTimeoutJob?.cancel()
+        connectTimeoutJob = viewModelScope.launch {
+            delay(CONNECT_TIMEOUT_MS)
+            if (!hidState.value.isConnected) { _connectRequested.value = false; log.add("Connect: no answer from the laptop") }
         }
+        val pc = knownPc
+        when (hidState.value.registration) {
+            RegistrationState.Registered -> if (pc != null) connect(pc)
+            RegistrationState.Registering -> Unit // connects to the known laptop once registered
+            else -> { log.add("Connect: starting the gamepad"); registerInternal() }
+        }
+        return pc == null
     }
 
     fun applyPhoneName() {
@@ -516,7 +546,7 @@ class MainViewModel(
         if (prev.registration != s.registration) log.add("Registration: ${s.registration.label}")
         if (prev.connection != s.connection) log.add("Connection: ${s.connection.label}")
 
-        if (s.registration is RegistrationState.Failed) wantRegistered = false
+        if (s.registration is RegistrationState.Failed) { wantRegistered = false; _connectRequested.value = false }
         if (prev.registration != RegistrationState.Registered && s.registration == RegistrationState.Registered && !s.isConnected) {
             scheduleAutoConnect()
         }
@@ -531,6 +561,8 @@ class MainViewModel(
 
         val wasConnected = prev.connection is ConnectionState.Connected
         if (s.isConnected && !wasConnected) {
+            _connectRequested.value = false
+            connectTimeoutJob?.cancel()
             autoConnectJob?.cancel() // connected: a pending auto-connect must not fire later
             _connectedSince.value = uptime()
             s.connectedHost?.let { h ->
@@ -571,6 +603,8 @@ class MainViewModel(
     companion object {
         const val LOADOUT_LIMIT_MESSAGE = "You already have 5 loadouts. Delete one to create a new one."
         const val MAX_AUTO_REGISTER = 3
+        /** How long "Connecting…" is shown after tapping Connect without a connection. */
+        const val CONNECT_TIMEOUT_MS = 20_000L
     }
 
     override fun onCleared() {

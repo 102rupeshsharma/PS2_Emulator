@@ -5,6 +5,7 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import com.ps2gamepad.bluetooth.HidEvent
 import com.ps2gamepad.bluetooth.HidStateReducer
 import com.ps2gamepad.bluetooth.PhoneNameControl
@@ -73,12 +74,22 @@ class SimpleStatusTest {
     }
     @Test fun noPcMeansPairWithNameInstructions() {
         val s = st()
-        assertEquals(SimpleAction.MAKE_VISIBLE, s.action)
+        assertEquals("one Connect button, also for pairing", SimpleAction.CONNECT, s.action)
         assertTrue(s.help.contains("\"PadLink\""))
     }
     @Test fun knownPcMeansConnect() {
         val s = st(known = pc, hid = reg.copy(connection = ConnectionState.Disconnected(pc)))
-        assertEquals(SimpleAction.CONNECT_PC, s.action); assertEquals("Connect to RUPESH", s.actionLabel)
+        assertEquals(SimpleAction.CONNECT, s.action); assertEquals("Connect", s.actionLabel)
+    }
+    @Test fun beforeTappingConnectNothingIsStartedAndConnectIsTheOnlyAction() {
+        val idle = HidState()
+        val s = simpleStatus(BluetoothState.ENABLED, PermissionState.GRANTED, idle, pc, "PadLink", started = false)
+        assertEquals("Not connected", s.title)
+        assertEquals(SimpleAction.CONNECT, s.action); assertEquals("Connect", s.actionLabel)
+    }
+    @Test fun afterTappingConnectItShowsConnecting() {
+        val s = simpleStatus(BluetoothState.ENABLED, PermissionState.GRANTED, HidState(), pc, "PadLink", started = true, connecting = true)
+        assertEquals("Connecting to RUPESH…", s.title); assertEquals(SimpleAction.NONE_WAIT, s.action)
     }
     @Test fun connectingWaits() = assertEquals(SimpleAction.NONE_WAIT, st(known = pc, hid = reg.copy(connection = ConnectionState.Connecting(pc))).action)
     @Test fun connectedOnlyFromRealConnection() {
@@ -111,15 +122,40 @@ class AutoModeViewModelTest {
         assertEquals(laptop, vm.knownPc)
     }
 
-    @Test fun openingTheAppRenamesPhoneAndRegisters() = runTest(dispatcher) {
+    @Test fun openingTheAppRenamesThePhoneButDoesNotConnect() = runTest(dispatcher) {
         open()
         assertEquals(PhoneNameControl.GAMEPAD_NAME, names.name)
         assertEquals("POCO F6", names.originalName)
         assertEquals(PhoneNameControl.GAMEPAD_NAME, vm.phoneName.value)
-        assertEquals(1, hid.registerCalls)
-        open() // again: no double registration, no second rename
+        assertEquals("3.3.0: nothing starts before Connect", 0, hid.registerCalls)
+        advanceUntilIdle()
+        assertTrue(hid.connects.isEmpty())
+        open() // again: no second rename
         assertEquals(1, names.renames)
+        assertEquals(0, hid.registerCalls)
+    }
+
+    @Test fun connectStartsTheGamepadAndConnectsToTheKnownLaptop() = runTest(dispatcher) {
+        open()
+        assertFalse("laptop known: no pairing needed", vm.connectNow()); runCurrent()
         assertEquals(1, hid.registerCalls)
+        assertTrue(vm.connectRequested.value)
+        hid.emit(HidEvent.AppStatusChanged(true)); runCurrent()
+        advanceTimeBy(1_600); runCurrent()
+        assertEquals(listOf(laptop.address), hid.connects)
+        hid.emit(HidEvent.ConnectionChanged(laptop, HidStateReducer.STATE_CONNECTED)); runCurrent()
+        assertFalse(vm.connectRequested.value)
+        vm.connectNow(); runCurrent() // tapping again while registered: just connects, no re-registration
+        assertEquals(1, hid.registerCalls)
+    }
+
+    @Test fun connectWithoutAKnownLaptopAsksForPairing() = runTest(dispatcher) {
+        val vm2 = MainViewModel(hid, bt, { emptyList() }, DiagnosticLog(), emptyList(), { 0L }, phoneNameControl = names)
+        vm2.onPermissionsChanged(true); vm2.onForeground(); vm2.autoStart(); runCurrent()
+        assertTrue("no laptop known: the phone must be made visible", vm2.connectNow())
+        assertEquals(1, hid.registerCalls)
+        advanceTimeBy(MainViewModel.CONNECT_TIMEOUT_MS + 100); runCurrent()
+        assertFalse("gives up showing Connecting after the timeout", vm2.connectRequested.value)
     }
 
     @Test fun nothingHappensWithoutPermissionOrBluetooth() = runTest(dispatcher) {
@@ -130,35 +166,39 @@ class AutoModeViewModelTest {
         assertEquals(0, hid.registerCalls)
     }
 
-    @Test fun bluetoothTurnedOnWhileOpenStartsAutomatically() = runTest(dispatcher) {
+    @Test fun bluetoothTurnedOnDoesNotConnectByItselfButResumesAfterConnect() = runTest(dispatcher) {
         bt.value = BluetoothState.DISABLED; runCurrent()
         open()
-        assertEquals(0, hid.registerCalls)
         bt.value = BluetoothState.ENABLED; runCurrent()
-        assertEquals(1, hid.registerCalls)
+        assertEquals("not started yet: stays off", 0, hid.registerCalls)
+        vm.connectNow(); runCurrent()
+        hid.emit(HidEvent.AppStatusChanged(true)); runCurrent()
+        bt.value = BluetoothState.DISABLED; runCurrent()
+        bt.value = BluetoothState.ENABLED; runCurrent()
+        assertEquals("after Connect, Bluetooth coming back resumes as before", 2, hid.registerCalls)
     }
 
     @Test fun afterRegistrationItConnectsToTheKnownLaptop() = runTest(dispatcher) {
-        open()
+        open(); vm.connectNow(); runCurrent()
         hid.emit(HidEvent.AppStatusChanged(true)); runCurrent()
         advanceTimeBy(1_600); runCurrent()
         assertEquals(listOf(laptop.address), hid.connects)
     }
 
     @Test fun noAutoConnectIfTheStackAlreadyConnects() = runTest(dispatcher) {
-        open()
+        open(); vm.connectNow(); runCurrent()
         hid.emit(HidEvent.AppStatusChanged(true)); runCurrent()
         hid.emit(HidEvent.ConnectionChanged(laptop, HidStateReducer.STATE_CONNECTING)); runCurrent()
         advanceUntilIdle()
         assertTrue(hid.connects.isEmpty())
     }
 
-    @Test fun userUnregisterStopsAutoStart() = runTest(dispatcher) {
-        open()
+    @Test fun userUnregisterStopsItUntilConnectIsTappedAgain() = runTest(dispatcher) {
+        open(); vm.connectNow(); runCurrent()
         vm.unregister(); runCurrent()
-        vm.autoStart(); runCurrent()
+        vm.autoStart(); vm.onForeground(); runCurrent()
         assertEquals(1, hid.registerCalls)
-        vm.register(); runCurrent() // an explicit Register turns automatic mode back on
+        vm.connectNow(); runCurrent()
         assertEquals(2, hid.registerCalls)
     }
 
@@ -196,12 +236,14 @@ class SimpleHomeUiTest {
     @Test fun walksThroughTheStepsInPlainWords() {
         rule.onNodeWithText("Allow Bluetooth access").assertIsDisplayed()
         rule.runOnIdle { vm.onPermissionsChanged(true); vm.onForeground(); vm.autoStart() }
-        rule.onNodeWithText("Getting ready…").assertIsDisplayed()
-        rule.runOnIdle { hid.emit(HidEvent.AppStatusChanged(true)) }
-        rule.onNodeWithText("Ready to pair").assertIsDisplayed()
+        rule.onNodeWithText("Not connected").assertIsDisplayed()
+        rule.runOnIdle { assertEquals("opening the app does not connect", 0, hid.registerCalls) }
+        rule.onNodeWithText("Connect").assertIsDisplayed()
         rule.onNodeWithText("\"PadLink\"").assertIsDisplayed()
         rule.onNodeWithTag("homeAction").performClick()
-        rule.runOnIdle { assertEquals(1, discoverableRequests) }
+        rule.runOnIdle { assertEquals(1, hid.registerCalls); assertEquals("no laptop known yet: pairing", 1, discoverableRequests) }
+        rule.onNodeWithText("Waiting for the laptop…").assertIsDisplayed()
+        rule.runOnIdle { hid.emit(HidEvent.AppStatusChanged(true)) }
         rule.runOnIdle { hid.emit(HidEvent.ConnectionChanged(laptop, HidStateReducer.STATE_CONNECTED)) }
         rule.onNodeWithText("Connected to RUPESH ✓").assertIsDisplayed()
         rule.onNodeWithText("Open Controller").performClick()
@@ -221,7 +263,7 @@ class SimpleHomeUiTest {
     }
 
     @Test fun moreOpensTheFullMenu() {
-        rule.onNodeWithTag("homeMore").performClick()
+        rule.onNodeWithTag("homeMore").performScrollTo().performClick()
         rule.onNodeWithTag("dashboard").assertIsDisplayed()
     }
 }

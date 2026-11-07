@@ -11,7 +11,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.displayCutout
+import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -47,8 +47,9 @@ private val CardBottom = Color(0xFF161A28)
 private val CardLine = Color(0x33FFFFFF)
 
 /**
- * Premium start screen: one status in plain words with the single action needed now, a live
- * preview of the selected controller style, and three quick tiles. Advanced screens are under "More".
+ * Start screen, PORTRAIT (3.3.0): one status in plain words with ONE button (Connect, or Open
+ * Controller once connected), a live preview of the controller, and quick tiles. Nothing connects
+ * until Connect is tapped. Advanced screens are under "More".
  */
 @Composable
 fun SimpleHomeScreen(vm: MainViewModel, actions: AppActions) {
@@ -60,8 +61,9 @@ fun SimpleHomeScreen(vm: MainViewModel, actions: AppActions) {
     vm.bondedHosts.collectAsStateWithLifecycle().value // recompose when the paired list changes
     val store by vm.profiles.collectAsStateWithLifecycle() // ...or the last connection / theme changes
 
+    val connecting by vm.connectRequested.collectAsStateWithLifecycle()
     val phoneName = name ?: PhoneNameControl.GAMEPAD_NAME
-    val st = simpleStatus(bt, perm, hid, vm.knownPc, phoneName)
+    val st = simpleStatus(bt, perm, hid, vm.knownPc, phoneName, started = vm.started, connecting = connecting)
     BackHandler { actions.exit() }
 
     Box(
@@ -70,16 +72,17 @@ fun SimpleHomeScreen(vm: MainViewModel, actions: AppActions) {
         // soft glow in the status colour behind the status card
         Canvas(Modifier.fillMaxSize()) {
             drawCircle(
-                Brush.radialGradient(listOf(st.severity.color.copy(alpha = 0.22f), Color.Transparent), center = Offset(size.width * 0.25f, size.height * 0.45f), radius = size.height * 0.75f),
-                radius = size.height * 0.75f, center = Offset(size.width * 0.25f, size.height * 0.45f),
+                Brush.radialGradient(listOf(st.severity.color.copy(alpha = 0.22f), Color.Transparent), center = Offset(size.width * 0.5f, size.height * 0.3f), radius = size.height * 0.75f),
+                radius = size.height * 0.75f, center = Offset(size.width * 0.5f, size.height * 0.3f),
             )
         }
-        Row(
-            Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.displayCutout).padding(horizontal = 24.dp, vertical = 18.dp),
-            horizontalArrangement = Arrangement.spacedBy(24.dp),
+        // one portrait column: brand, status + the one button, name, controller preview, tiles
+        Column(
+            Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.systemBars).padding(horizontal = 20.dp, vertical = 18.dp)
+                .verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            // ------------------------------------------------ left: brand, status, main action
-            Column(Modifier.weight(1.05f).fillMaxSize().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     Box(
                         Modifier.size(44.dp).clip(RoundedCornerShape(12.dp))
@@ -121,16 +124,17 @@ fun SimpleHomeScreen(vm: MainViewModel, actions: AppActions) {
                                 SimpleAction.RETRY_SETUP -> vm.register()
                                 SimpleAction.MAKE_VISIBLE -> { vm.applyPhoneName(); actions.makeDiscoverable() }
                                 SimpleAction.CONNECT_PC -> vm.connectKnownPc()
+                                SimpleAction.CONNECT -> if (vm.connectNow()) actions.makeDiscoverable()
                                 SimpleAction.OPEN_CONTROLLER -> vm.openController()
                                 SimpleAction.NONE_WAIT -> Unit
                             }
                         }
                     }
-                    if (st.action == SimpleAction.CONNECT_PC) {
+                    if (st.action == SimpleAction.CONNECT && vm.knownPc != null) {
                         Text(
                             "Pair a laptop again / a new laptop",
                             color = Color(0xFF9DB0FF), fontSize = 13.sp, fontWeight = FontWeight.Medium,
-                            modifier = Modifier.clip(RoundedCornerShape(8.dp)).clickable { vm.applyPhoneName(); actions.makeDiscoverable() }
+                            modifier = Modifier.clip(RoundedCornerShape(8.dp)).clickable { vm.connectNow(); actions.makeDiscoverable() }
                                 .padding(vertical = 4.dp, horizontal = 2.dp).testTag("homePairNew"),
                         )
                     }
@@ -146,8 +150,8 @@ fun SimpleHomeScreen(vm: MainViewModel, actions: AppActions) {
                 }
             }
 
-            // ------------------------------------------------ right: style preview + tiles
-            Column(Modifier.weight(1f).fillMaxSize().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            // ------------------------------------------------ controller preview + tiles
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Column(
                     Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp))
                         .background(Brush.verticalGradient(listOf(CardTop, CardBottom)))

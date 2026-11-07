@@ -6,7 +6,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.displayCutout
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.windowInsetsPadding
@@ -56,11 +56,9 @@ fun DashboardScreen(vm: MainViewModel, actions: AppActions) {
     BackHandler { vm.navigate(Screen.HOME) }
     val status = overallStatus(bt, perm, hid)
 
-    Row(
-        Modifier.fillMaxSize().background(Palette.Background).windowInsetsPadding(WindowInsets.displayCutout).padding(12.dp).testTag("dashboard"),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    TwoPane(
+        Modifier.fillMaxSize().background(Palette.Background).windowInsetsPadding(WindowInsets.safeDrawing).padding(12.dp).testTag("dashboard"),
+        first = {
             Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 ActionButton("Back", outlined = true) { vm.navigate(Screen.HOME) }
                 Text("More", color = Palette.Text, fontSize = 20.sp, fontWeight = FontWeight.Bold)
@@ -83,8 +81,8 @@ fun DashboardScreen(vm: MainViewModel, actions: AppActions) {
             (hid.connection as? com.ps2gamepad.model.ConnectionState.Error)?.let {
                 Text("Connection error: ${it.reason}", color = Palette.Bad, fontSize = 12.sp)
             }
-        }
-        Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        },
+        second = {
             Text("Quick access", color = Palette.TextDim, fontSize = 12.sp)
             BigButton("Open Controller", "dash_controller") { vm.openController() }
             BigButton("Connection (register / pair / connect)", "dash_connection", outlined = true) { vm.navigate(Screen.CONNECTION) }
@@ -93,8 +91,8 @@ fun DashboardScreen(vm: MainViewModel, actions: AppActions) {
             BigButton("Input test / diagnostics", "dash_diagnostics", outlined = true) { vm.navigate(Screen.DIAGNOSTICS) }
             BigButton("Analog calibration", "dash_calibration", outlined = true) { vm.navigate(Screen.CALIBRATION) }
             BigButton("Restore my phone's original Bluetooth name", "dash_restoreName", outlined = true) { vm.restorePhoneName() }
-        }
-    }
+        },
+    )
 }
 
 @Composable

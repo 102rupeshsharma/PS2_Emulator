@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.displayCutout
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -73,6 +74,7 @@ fun App(vm: MainViewModel, actions: AppActions) {
 }
 
 /** Phase 1 screen: Bluetooth status, HID registration, pairing and basic report diagnostics. */
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 fun MainScreen(vm: MainViewModel, actions: AppActions) {
     val bt by vm.bluetoothState.collectAsStateWithLifecycle()
@@ -88,14 +90,12 @@ fun MainScreen(vm: MainViewModel, actions: AppActions) {
 
     BackHandler { vm.navigate(Screen.HOME) }
 
-    Row(
-        Modifier.fillMaxSize().background(Palette.Background).windowInsetsPadding(WindowInsets.displayCutout).padding(12.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        // ---------------- left: status and lifecycle actions
-        Column(Modifier.weight(1f).fillMaxSize().verticalScroll(rememberScrollState())) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Connection", color = Palette.Text, fontSize = 18.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+    TwoPane(
+        Modifier.fillMaxSize().background(Palette.Background).windowInsetsPadding(WindowInsets.safeDrawing).padding(12.dp),
+        // ---------------- status and lifecycle actions
+        first = {
+            Text("Connection", color = Palette.Text, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+            androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 ActionButton("Open Controller", onClick = { vm.openController() })
                 ActionButton("Home", outlined = true, onClick = { vm.navigate(Screen.HOME) })
             }
@@ -114,18 +114,18 @@ fun MainScreen(vm: MainViewModel, actions: AppActions) {
                 StatusRow("Disconnect status", disc?.label ?: if (hid.isConnected) "Active link" else "-", if (disc != null) Severity.WARN else Severity.IDLE)
             }
             Spacer(Modifier.height(8.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 if (perm != PermissionState.GRANTED) ActionButton("Grant permission", onClick = actions.requestPermissions)
                 if (bt == BluetoothState.DISABLED) ActionButton("Enable Bluetooth", onClick = actions.enableBluetooth)
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 val canRegister = bt == BluetoothState.ENABLED && perm == PermissionState.GRANTED &&
                     hid.registration != RegistrationState.Registered && hid.registration != RegistrationState.Registering
                 ActionButton("Register HID Device", enabled = canRegister, onClick = vm::register)
                 ActionButton("Unregister HID", enabled = hid.registration == RegistrationState.Registered || hid.registration == RegistrationState.Registering,
                     outlined = true, onClick = vm::unregister)
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 ActionButton("Make discoverable", enabled = hid.registration == RegistrationState.Registered && perm == PermissionState.GRANTED,
                     outlined = true, onClick = actions.makeDiscoverable)
                 ActionButton("Disconnect", enabled = hid.isConnected, outlined = true, onClick = vm::disconnect)
@@ -147,14 +147,13 @@ fun MainScreen(vm: MainViewModel, actions: AppActions) {
                 Text("Compatibility", color = Palette.TextDim, fontSize = 12.sp)
                 vm.compatibility.forEach { Text(it, color = Palette.Text, fontSize = 12.sp) }
             }
-        }
-
-        // ---------------- right: Phase 1 HID input diagnostic + log
-        Column(Modifier.weight(1f).fillMaxSize()) {
+        },
+        // ---------------- Phase 1 HID input diagnostic + log
+        second = {
             Card {
                 Text("HID input diagnostic", color = Palette.Text, fontWeight = FontWeight.SemiBold)
                 Text("Tap to toggle a button; Windows should show it held until tapped again.", color = Palette.TextDim, fontSize = 11.sp)
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     listOf(ControllerButton.SQUARE, ControllerButton.CROSS, ControllerButton.CIRCLE).forEachIndexed { i, b ->
                         val on = pad.isPressed(b)
                         Button(
@@ -177,12 +176,12 @@ fun MainScreen(vm: MainViewModel, actions: AppActions) {
             LaunchedEffect(logLines.size) { if (logLines.isNotEmpty()) listState.scrollToItem(logLines.lastIndex) }
             LazyColumn(
                 state = listState,
-                modifier = Modifier.fillMaxWidth().weight(1f).background(Color.Black, RoundedCornerShape(8.dp)).padding(8.dp),
+                modifier = Modifier.fillMaxWidth().height(320.dp).background(Color.Black, RoundedCornerShape(8.dp)).padding(8.dp),
             ) {
                 items(logLines) { Text(it, color = Color(0xFFB8F5C8), fontFamily = FontFamily.Monospace, fontSize = 10.sp) }
             }
-        }
-    }
+        },
+    )
 }
 
 @Composable

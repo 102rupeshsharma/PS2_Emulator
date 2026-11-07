@@ -1,5 +1,21 @@
 # Release notes
 
+## 3.4.0 (versionCode 20), 2026-11-08: portrait app, landscape controller; payment section removed
+
+- **The whole app is portrait now; only the controller is landscape** (playing and editing its layout).
+  The screen turns by itself when the controller opens and closes. The app starts in portrait.
+- Every menu screen was reworked for a portrait phone (they were built for landscape and broke:
+  one letter per line, buttons pushed off screen): "More", Connection, Customize, Profiles,
+  Diagnostics, Calibration and the loadout picker now stack their two halves in one scrolling column,
+  button rows wrap, loadout cards sit two per row and the calibration sticks stack. On a wide screen
+  (tablet) the two halves stay side by side.
+- **README:** the payment / UPI section and its QR image are removed.
+- Tests: PortraitAppTest (orientation rule, app starts in portrait, README has no payment section,
+  every menu screen opened from "More" on a portrait phone with its main buttons reached by
+  scrolling and pressed). 287 automated tests (284 passed, 3 skipped). The "New profile" name dialog cannot be driven by the test
+  framework (text field inside a dialog, same as before); it is on the manual checklist.
+  Not yet checked on the phone.
+
 ## 3.3.0 (versionCode 19), 2026-11-08: portrait start screen, one Connect button, no automatic connecting
 
 - **Start screen in portrait** (the controller and every other screen stay landscape). Same content as

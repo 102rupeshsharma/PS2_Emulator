@@ -61,7 +61,7 @@ fun LoadoutPickerScreen(vm: MainViewModel) {
             color = Palette.TextDim, fontSize = 12.sp,
         )
         LazyVerticalGrid(
-            columns = GridCells.Fixed(3),
+            columns = GridCells.Adaptive(minSize = 170.dp), // 2 per row on a phone in portrait, 3+ on wide screens
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
@@ -105,17 +105,13 @@ private fun LoadoutCard(vm: MainViewModel, p: ControllerProfile, title: String, 
         verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         ControllerPreview(vm.input, p, Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)))
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
-                Text(title, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 15.sp, maxLines = 1)
-                Text(subtitle, color = Palette.TextDim, fontSize = 11.sp, maxLines = 1)
-            }
-            if (lastUsed) {
-                Box(Modifier.background(accent, RoundedCornerShape(50)).padding(horizontal = 8.dp, vertical = 2.dp)) {
-                    Text("LAST USED", color = Color.White, fontSize = 9.sp, fontWeight = FontWeight.Bold)
-                }
+        if (lastUsed) {
+            Box(Modifier.background(accent, RoundedCornerShape(50)).padding(horizontal = 8.dp, vertical = 2.dp)) {
+                Text("LAST USED", color = Color.White, fontSize = 9.sp, fontWeight = FontWeight.Bold)
             }
         }
+        Text(title, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 15.sp, maxLines = 1)
+        Text(subtitle, color = Palette.TextDim, fontSize = 11.sp, maxLines = 1)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(
                 Modifier.weight(1f).height(40.dp).clip(RoundedCornerShape(50))

@@ -232,6 +232,18 @@ GyroChipUiTest (2): all passed.
 Automated (MOCK Bluetooth, simulated link): HumanPlayTest (5), SendSchedulerTest (4), gyro shaky-hand
 tests (2): all passed. HumanPlayTest fails on the 3.1 Settings code, as reported.
 
+## 4.13 Portrait app, landscape controller (3.4.0) ⏳
+
+| # | Test | Expected | Result |
+|---|---|---|---|
+| O1 | Open the app holding the phone sideways | Start screen shows in portrait | ⏳ |
+| O2 | Open Controller → pick a loadout | Screen turns to landscape | ⏳ |
+| O3 | Leave the controller (Home / Back twice) | Screen turns back to portrait | ⏳ |
+| O4 | Open each menu screen (More, Connection, Customize, Profiles, Diagnostics, Calibration) | Readable, nothing cut off, everything reachable by scrolling | ⏳ |
+| O5 | Profiles → New profile → type a name → OK | Profile created (not automatable, see above) | ⏳ |
+
+Automated (MOCK Bluetooth): PortraitAppTest (OrientationRuleTest 3, PortraitScreensUiTest 6): all passed.
+
 ## 5. Final acceptance checklist
 
 | # | Criterion | Status |

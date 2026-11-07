@@ -62,7 +62,7 @@ class SimpleStatusTest {
     private val pc = HostDevice("AA", "RUPESH")
     private val reg = HidState(true, RegistrationState.Registered, ConnectionState.WaitingForHost)
     private fun st(bt: BluetoothState = BluetoothState.ENABLED, perm: PermissionState = PermissionState.GRANTED, hid: HidState = reg, known: HostDevice? = null) =
-        simpleStatus(bt, perm, hid, known, "PS2 Gamepad")
+        simpleStatus(bt, perm, hid, known, "PadLink")
 
     @Test fun permissionFirst() = assertEquals(SimpleAction.ALLOW_PERMISSION, st(bt = BluetoothState.DISABLED, perm = PermissionState.REQUIRED).action)
     @Test fun bluetoothOff() = assertEquals(SimpleAction.TURN_ON_BLUETOOTH, st(bt = BluetoothState.DISABLED).action)
@@ -74,7 +74,7 @@ class SimpleStatusTest {
     @Test fun noPcMeansPairWithNameInstructions() {
         val s = st()
         assertEquals(SimpleAction.MAKE_VISIBLE, s.action)
-        assertTrue(s.help.contains("\"PS2 Gamepad\""))
+        assertTrue(s.help.contains("\"PadLink\""))
     }
     @Test fun knownPcMeansConnect() {
         val s = st(known = pc, hid = reg.copy(connection = ConnectionState.Disconnected(pc)))
@@ -199,7 +199,7 @@ class SimpleHomeUiTest {
         rule.onNodeWithText("Getting ready…").assertIsDisplayed()
         rule.runOnIdle { hid.emit(HidEvent.AppStatusChanged(true)) }
         rule.onNodeWithText("Ready to pair").assertIsDisplayed()
-        rule.onNodeWithText("\"PS2 Gamepad\"").assertIsDisplayed()
+        rule.onNodeWithText("\"PadLink\"").assertIsDisplayed()
         rule.onNodeWithTag("homeAction").performClick()
         rule.runOnIdle { assertEquals(1, discoverableRequests) }
         rule.runOnIdle { hid.emit(HidEvent.ConnectionChanged(laptop, HidStateReducer.STATE_CONNECTED)) }

@@ -43,6 +43,27 @@ class MainActivity : ComponentActivity() {
         vm.log.add(if (result.resultCode > 0) "Phone discoverable for ${result.resultCode} s - pair from Windows now" else "Discoverable request declined")
     }
 
+    /**
+     * Battery saver while playing: the screen is the biggest power user (and heat source).
+     *  - 60 Hz instead of 90/120 Hz: about half the display and GPU work, nothing visible changes.
+     *  - Dimmed: you look at the PC, not the phone. Undone as soon as you leave the controller.
+     */
+    private fun applyPowerSaving(on: Boolean) {
+        val lp = window.attributes
+        lp.screenBrightness = if (on) SAVER_BRIGHTNESS else WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE
+        lp.preferredDisplayModeId = if (on) lowRefreshModeId() else 0
+        window.attributes = lp
+    }
+
+    /** The display mode with the current resolution and the lowest refresh rate of at least 60 Hz (0 = no preference). */
+    private fun lowRefreshModeId(): Int {
+        @Suppress("DEPRECATION") val display = windowManager.defaultDisplay ?: return 0
+        val cur = display.mode
+        return display.supportedModes
+            .filter { it.physicalWidth == cur.physicalWidth && it.physicalHeight == cur.physicalHeight && it.refreshRate >= 59f }
+            .minByOrNull { it.refreshRate }?.modeId ?: 0
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         WindowCompat.setDecorFitsSystemWindows(window, false)
@@ -50,9 +71,11 @@ class MainActivity : ComponentActivity() {
 
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
-                vm.screen.collect { s ->
-                    if (s == Screen.CONTROLLER || s == Screen.PC_CONTROLLER) window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                kotlinx.coroutines.flow.combine(vm.screen, vm.profiles) { s, store -> s to store.batterySaver }.collect { (s, saver) ->
+                    val playing = s == Screen.CONTROLLER || s == Screen.PC_CONTROLLER
+                    if (playing) window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
                     else window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                    applyPowerSaving(playing && saver)
                 }
             }
         }
@@ -137,5 +160,9 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    companion object { const val TAG = "BtGamepad" }
+    companion object {
+        const val TAG = "BtGamepad"
+        /** Screen brightness while playing in battery saver (0..1). Buttons stay readable indoors. */
+        const val SAVER_BRIGHTNESS = 0.2f
+    }
 }

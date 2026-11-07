@@ -13,6 +13,8 @@ import kotlinx.coroutines.flow.StateFlow
  * only; they say nothing about real Bluetooth hardware.
  */
 class FakeHid : HidController {
+    var powerSaving: Boolean? = null
+    override fun setPowerSaving(on: Boolean) { powerSaving = on }
     val s = MutableStateFlow(HidState())
     override val state: StateFlow<HidState> = s
     override val stats: StateFlow<SenderStats> = MutableStateFlow(SenderStats())

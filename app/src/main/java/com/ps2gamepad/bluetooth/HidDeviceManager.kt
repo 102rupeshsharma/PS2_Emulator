@@ -50,6 +50,11 @@ interface HidController {
     fun sendInputReport(reportId: Int, report: ByteArray, eventUptimeMs: Long = SystemClock.uptimeMillis()): Boolean
     fun onBluetoothOff()
     fun close()
+    /**
+     * Battery saver: send at most one report every 8 ms (125 Hz) instead of every 4 ms (250 Hz).
+     * Stick moves are coalesced, so only the radio's duty cycle changes (worst case +4 ms).
+     */
+    fun setPowerSaving(on: Boolean) {}
 }
 
 /**
@@ -57,7 +62,7 @@ interface HidController {
  *
  * Threads:
  *  - "hid-callback": BluetoothHidDevice callbacks and timeouts.
- *  - "hid-sender": sends queued reports, at most one every [minSendIntervalMs].
+ *  - "hid-sender": sends queued reports, at most one every 4 ms (8 ms in battery saver).
  *  - Callers (main thread) only take a short lock to queue a report.
  */
 @SuppressLint("MissingPermission") // Callers check BLUETOOTH_CONNECT; SecurityException is caught as well.
@@ -65,7 +70,7 @@ class HidDeviceManager(
     private val context: Context,
     private val adapterProvider: () -> BluetoothAdapter?,
     private val log: (String) -> Unit,
-    private val minSendIntervalMs: Long = 4,
+    private val fastSendIntervalMs: Long = 4,
 ) : HidController {
 
     private val _state = MutableStateFlow(HidState())
@@ -414,10 +419,11 @@ class HidDeviceManager(
         var retries = 0
         while (!closed) {
             try {
-                lock.withLock { while (queue.isEmpty() && !closed) hasWork.await(250, TimeUnit.MILLISECONDS) }
+                // Idle: sleep until a report is queued (no periodic wake-ups; close() signals too).
+                lock.withLock { while (queue.isEmpty() && !closed) hasWork.await() }
                 // Pace first, then take the head: axis-only updates that arrived meanwhile were
                 // coalesced into it, so we always send the freshest stick position.
-                val wait = minSendIntervalMs - (SystemClock.uptimeMillis() - lastSendAt)
+                val wait = (if (powerSaving) POWER_SAVING_SEND_INTERVAL_MS else fastSendIntervalMs) - (SystemClock.uptimeMillis() - lastSendAt)
                 if (wait > 0) Thread.sleep(wait)
             } catch (e: InterruptedException) {
                 break
@@ -474,6 +480,9 @@ class HidDeviceManager(
     }
 
     /** Releases everything. Safe to call from any thread, and more than once (audit M1). */
+    @Volatile private var powerSaving = false
+    override fun setPowerSaving(on: Boolean) { powerSaving = on }
+
     override fun close() {
         if (closed) return
         closed = true // first: every callback from now on closes what it gets instead of storing it
@@ -497,6 +506,8 @@ class HidDeviceManager(
     }
 
     companion object {
+        /** Report pacing in battery saver (125 Hz). */
+        const val POWER_SAVING_SEND_INTERVAL_MS = 8L
         const val MAX_RETRIES = 5
         const val RETRY_DELAY_MS = 15L
 

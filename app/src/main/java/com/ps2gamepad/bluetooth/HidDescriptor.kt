@@ -24,9 +24,9 @@ object HidDescriptor {
     const val BUTTON_COUNT: Int = 12
     const val HAT_NULL: Int = 8
 
-    const val SDP_NAME = "Bluetooth Gamepad Prototype"
-    const val SDP_DESCRIPTION = "Android Bluetooth HID gamepad"
-    const val SDP_PROVIDER = "PS2Gamepad"
+    const val SDP_NAME = "PadLink Gamepad"
+    const val SDP_DESCRIPTION = "PadLink: phone as a Bluetooth controller"
+    const val SDP_PROVIDER = "PadLink"
 
     /** Each line is one HID item: prefix byte (tag/type/size) followed by its data bytes. */
     val REPORT_DESCRIPTOR: ByteArray = bytes(

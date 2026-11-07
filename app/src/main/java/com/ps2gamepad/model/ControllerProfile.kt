@@ -222,6 +222,11 @@ data class ProfileStore(
     val lastMode: GamingMode? = null,
     /** Controller theme for both controllers: false = light soft UI (default), true = black. */
     val darkControls: Boolean = false,
+    /**
+     * Battery saver while a controller is shown (default ON): 60 Hz screen instead of 90/120 Hz,
+     * dimmed screen (you look at the PC, not the phone) and 125 Hz Bluetooth reports.
+     */
+    val batterySaver: Boolean = true,
 ) {
     val active: ControllerProfile get() = profiles.firstOrNull { it.id == activeId } ?: profiles.first()
 }

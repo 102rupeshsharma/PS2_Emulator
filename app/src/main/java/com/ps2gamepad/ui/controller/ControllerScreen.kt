@@ -474,6 +474,15 @@ private fun ControllerSettingsPanel(vm: MainViewModel, profile: ControllerProfil
             }
             androidx.compose.material3.Switch(checked = dark, onCheckedChange = { vm.setDarkControls(it) }, modifier = Modifier.testTag("set_dark"))
         }
+        val saver = vm.profiles.collectAsStateWithLifecycle().value.batterySaver
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text("Battery saver", color = neu.text, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                Text("ON: dim 60 Hz screen and 125 Hz Bluetooth while playing: much less battery and heat. " +
+                    "Black theme saves even more.", color = neu.textDim, fontSize = 11.sp)
+            }
+            androidx.compose.material3.Switch(checked = saver, onCheckedChange = { vm.setBatterySaver(it) }, modifier = Modifier.testTag("set_saver"))
+        }
         SettingSlider("Opacity (all controls)", a.buttonOpacity, 0.2f..1f, "set_opacity") { v -> vm.updateAppearance { it.copy(buttonOpacity = v) } }
         SettingSlider("Button size (all buttons)", a.buttonScale, 0.6f..1.6f, "set_buttonSize") { v -> vm.updateAppearance { it.copy(buttonScale = v) } }
         SettingSlider("Joystick size", a.stickScale, 0.6f..1.6f, "set_stickSize") { v -> vm.updateAppearance { it.copy(stickScale = v) } }

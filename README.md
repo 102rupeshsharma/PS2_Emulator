@@ -1,8 +1,8 @@
 # PadLink: your phone as a Bluetooth controller
 
 **PadLink** turns an Android phone into a Bluetooth controller for a Windows PC: a gamepad for PCSX2 and
-other emulators, a keyboard + mouse for PC games, gyro aiming, loadouts per game, and a soft light or
-black theme. No PC software and no driver needed.
+other emulators, a keyboard + mouse for PC games, gyro aiming, loadouts per game, and a black
+controller look with Y/B/A/X buttons. No PC software and no driver needed.
 
 ## 📲 Install on your phone
 
@@ -33,31 +33,36 @@ Requires Android 9 or newer with Bluetooth.
 | **Loadouts (one per game)** | **Controller with gyro** |
 | ![Loadouts](docs/screenshots/07_loadouts.png) | ![Controller gyro](docs/screenshots/06_controller_gyro.png) |
 
-SHA-256: `e4e74c2ce6506fc52f2d3b234228e3c5f56ace0714c9dd788a6689b8fecb03e4`
+SHA-256: `776f73d2938503b3dfc9c9e249c4e36d3159db53acac70a6d54fd35bc12ad113`
 
 ---
 
 PadLink is an Android app that turns a phone into a **Bluetooth HID controller** with a touch
-layout you can rearrange freely. Windows sees a standard game controller (and, if you switch on
-PC input, a keyboard and mouse), so PCSX2, other emulators and PC games can use it with no driver
+layout you can rearrange freely. Windows sees a standard game controller (and, with PC input on,
+which is the default, a keyboard and mouse), so PCSX2, other emulators and PC games can use it with no driver
 and no PC software.
 
-**Version 2.0.0.** 311 automated tests (309 passed, 2 skipped).
+**Version 2.1.0.** 314 automated tests (312 passed, 2 skipped).
 - Confirmed on real hardware by the developer (POCO F6 + Windows 11): registration, pairing,
   Windows game controller test (`joy.cpl`), PCSX2 with manual binding.
-- Not yet confirmed on hardware: gyro aiming, loadouts, PC Mode (keyboard/mouse), the soft-UI
-  themes and the battery saver. See [TEST_REPORT.md](TEST_REPORT.md).
+- Not yet confirmed on hardware: gyro aiming, loadouts, PC Mode (keyboard/mouse), the black
+  controller look and the battery saver. See [TEST_REPORT.md](TEST_REPORT.md).
+
+**PC Gaming shows "Online" but keys, mouse or gyro do nothing?** Windows remembers what the phone was
+when it was first paired. On the laptop: Settings → Bluetooth & devices → PadLink (or "PS2 Gamepad")
+→ **Remove device**, then **Add device** → PadLink again. Needed once per laptop. The **?** button on
+the PC controller shows the same steps.
 
 ### 🔋 Battery and heat
 
 **Battery saver** is ON by default (controller → Settings). While a controller is open it:
 - limits the screen to **60 Hz** instead of 90/120 Hz, which halves display and GPU work;
-- **dims the screen**, since you look at the PC, not the phone;
+- leaves **brightness** to you: adjust it with the phone's normal brightness control while playing (lower = less battery);
 - sends Bluetooth reports at **125 Hz** instead of 250 Hz (adds at most 4 ms).
 
 The app also has no background polling: the Bluetooth sender, the PC mouse ticker and the motion
-sensors sleep completely when idle, and the sensors run only while gyro aiming is on. For the
-lowest power use on an AMOLED phone, also switch on the **Black theme** (black pixels are off).
+sensors sleep completely when idle, and the sensors run only while gyro aiming is on. The controller
+background is pure black, so on an AMOLED phone those pixels are switched off.
 
 | Document | Contents |
 |---|---|
@@ -147,7 +152,7 @@ Source layout: `bluetooth/` (HID layer), `controller/` (input manager, stick mat
 
 ## 📥 Download
 
-### **[⬇️ Download PadLink (v2.0.0, 2.7 MB)](https://raw.githubusercontent.com/102rupeshsharma/PS2_Emulator/main/download/PadLink.apk)**
+### **[⬇️ Download PadLink (v2.1.0, 2.7 MB)](https://raw.githubusercontent.com/102rupeshsharma/PS2_Emulator/main/download/PadLink.apk)**
 
 Tap the link on your Android phone, open the downloaded file and tap **Install**. It installs over an
 older version, and your loadouts and pairing are kept.

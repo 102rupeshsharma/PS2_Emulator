@@ -36,6 +36,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -77,10 +78,17 @@ internal fun extraRect(e: ExtraButton, w: Float, h: Float, a: com.ps2gamepad.mod
 
 /** Short label for a user-added button (PlayStation symbols for the face buttons). */
 internal fun extraLabel(b: ControllerButton) = when (b) {
-    ControllerButton.TRIANGLE -> "△"; ControllerButton.CIRCLE -> "○"
-    ControllerButton.CROSS -> "✕"; ControllerButton.SQUARE -> "□"
+    ControllerButton.TRIANGLE -> "Y"; ControllerButton.CIRCLE -> "B"
+    ControllerButton.CROSS -> "A"; ControllerButton.SQUARE -> "X"
     ControllerButton.SELECT -> "SEL"; ControllerButton.START -> "START"
     else -> b.label
+}
+
+/** Face-button colour for an added button that presses a face button. */
+internal fun extraAccent(b: ControllerButton) = when (b) {
+    ControllerButton.TRIANGLE -> FaceColors.Y; ControllerButton.CIRCLE -> FaceColors.B
+    ControllerButton.CROSS -> FaceColors.A; ControllerButton.SQUARE -> FaceColors.X
+    else -> null
 }
 
 /** Full-screen landscape DualShock 2 style controller, plus the layout editor. */
@@ -131,7 +139,6 @@ fun ControllerScreen(vm: MainViewModel) {
             SmallChipButton(if (showOverlay) "Hide" else "Live") { showOverlay = !showOverlay }
             SmallChipButton("Edit") { vm.setEditMode(true) }
             SmallChipButton("Settings") { vm.input.releaseAll(); showSettings = true }
-            SmallChipButton(if (neu.dark) "☀ Light" else "☾ Dark") { vm.setDarkControls(!neu.dark) }
             if (gyroActive) SmallChipButton("Recenter") { vm.gyroRecenter() }
         }
         if (!hid.isConnected) {
@@ -196,7 +203,7 @@ fun ControllerLayout(
             // 1.9.0: four independent buttons (move, resize and overlap each one on its own)
             ControlId.FACE_BUTTONS.forEachIndexed { i, id ->
                 val b = when (id) { ControlId.TRIANGLE -> ControllerButton.TRIANGLE; ControlId.CIRCLE -> ControllerButton.CIRCLE; ControlId.CROSS -> ControllerButton.CROSS; else -> ControllerButton.SQUARE }
-                DigitalButton(b, input, epoch, b.label, KeyShape.CIRCLE, fs(id, 0.3f), Modifier.at(id).testTag("btn_${b.name}"), faceMark = i)
+                DigitalButton(b, input, epoch, FaceColors.LETTERS[i], KeyShape.CIRCLE, fs(id, 0.42f), Modifier.at(id).testTag("btn_${b.name}"), accent = FaceColors.COLORS[i])
             }
             AnalogStick(Stick.LEFT, input, epoch, profile.left, Modifier.at(ControlId.LEFT_STICK).testTag("stick_left"))
             if (gyroActive) GyroStickIndicator(input, onGyroRecenter, Modifier.at(ControlId.RIGHT_STICK).testTag("gyro_indicator"))
@@ -212,7 +219,7 @@ fun ControllerLayout(
                     val r = extraRect(e, cw, ch, a)
                     DigitalButton(
                         e.button, input, epoch, extraLabel(e.button), KeyShape.ROUNDED, (r.h * 0.34f).sp,
-                        Modifier.place(r).testTag("extra_${e.id}"), source = "extra_${e.id}",
+                        Modifier.place(r).testTag("extra_${e.id}"), source = "extra_${e.id}", accent = extraAccent(e.button),
                     )
                 }
             }
@@ -236,7 +243,7 @@ private fun LayoutEditor(vm: MainViewModel, profile: ControllerProfile, w: Float
     var extras by extrasState
     var selected by remember { mutableStateOf<ControlId?>(null) }
     var selectedExtra by remember { mutableStateOf<String?>(null) }
-    var message by remember { mutableStateOf<String?>("Drag any control to move it (they may overlap). Tap one to resize it.") }
+    var message by remember { mutableStateOf<String?>("Drag a control to move it (overlap is fine). Tap it, then drag the blue corner to resize.") }
     val density = LocalDensity.current.density
 
     ControllerLayout(vm.input, 0, profile, draft, interactive = false, extras = extras)
@@ -245,11 +252,8 @@ private fun LayoutEditor(vm: MainViewModel, profile: ControllerProfile, w: Float
     // Only the selected control gets a thin outline in its own shape (no boxes around everything).
     for (id in ControlId.editable) {
         val rect = draft.getValue(id)
-        val round = id in ControlId.FACE_BUTTONS || id == ControlId.L3 || id == ControlId.R3 || id == ControlId.DPAD ||
-            id == ControlId.LEFT_STICK || id == ControlId.RIGHT_STICK
         Box(
             Modifier.place(rect)
-                .then(if (id == selected) Modifier.border(2.dp, Palette.Info, if (round) CircleShape else RoundedCornerShape(30)) else Modifier)
                 .testTag("edit_${id.name}")
                 .pointerInput(id) { detectTapGestures { selected = id; selectedExtra = null } }
                 .pointerInput(id, draftState) {
@@ -277,7 +281,6 @@ private fun LayoutEditor(vm: MainViewModel, profile: ControllerProfile, w: Float
         val r = extraRect(e, w, h, profile.appearance)
         Box(
             Modifier.place(r)
-                .then(if (e.id == selectedExtra) Modifier.border(2.dp, Palette.Info, RoundedCornerShape(30)) else Modifier)
                 .testTag("editx_${e.id}")
                 .pointerInput(e.id) { detectTapGestures { selectedExtra = e.id; selected = null } }
                 .pointerInput(e.id, extrasState) {
@@ -293,6 +296,62 @@ private fun LayoutEditor(vm: MainViewModel, profile: ControllerProfile, w: Float
                     )
                 }
         )
+    }
+
+    // Selected control: dashed frame, blue corner handle (drag = resize), red x (delete an added button).
+    val selRect: ControlRect? = selected?.let { draft.getValue(it) }
+        ?: extras.firstOrNull { it.id == selectedExtra }?.let { extraRect(it, w, h, profile.appearance) }
+    if (selRect != null) {
+        val pad = 5f
+        val frame = ControlRect(selRect.cx, selRect.cy, selRect.w + 2 * pad, selRect.h + 2 * pad)
+        Box(
+            Modifier.place(frame).testTag("editFrame").drawBehind {
+                drawRoundRect(
+                    Palette.Info, cornerRadius = CornerRadius(8.dp.toPx()),
+                    style = androidx.compose.ui.graphics.drawscope.Stroke(
+                        width = 1.5.dp.toPx(),
+                        pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(8.dp.toPx(), 5.dp.toPx())),
+                    ),
+                )
+            }
+        )
+        val handle = 24f
+        Box(
+            Modifier.offset((frame.right - handle / 2).dp, (frame.bottom - handle / 2).dp).size(handle.dp)
+                .background(Palette.Info, CircleShape).border(2.dp, Color.White, CircleShape)
+                .testTag("resizeHandle")
+                .pointerInput(selected, selectedExtra) {
+                    detectDragGestures { change, amount ->
+                        change.consume()
+                        val grow = (amount.x + amount.y) / 2f / density
+                        val sel = selected
+                        val sx = selectedExtra
+                        if (sel != null) {
+                            val d = defaults.getValue(sel)
+                            val cur = draftState.value.getValue(sel)
+                            val sc = ((cur.w + grow * 2f) / d.w).coerceIn(0.5f, 2f)
+                            draft = draftState.value + (sel to LayoutEngine.clampInside(cur.copy(w = d.w * sc, h = d.h * sc), w, h))
+                        } else if (sx != null) {
+                            extras = extrasState.value.map {
+                                if (it.id != sx) it else {
+                                    val cur = extraRect(it, w, h, profile.appearance)
+                                    it.copy(scale = (it.scale * (cur.w + grow * 2f) / cur.w).coerceIn(0.5f, 2f))
+                                }
+                            }
+                        }
+                    }
+                },
+            contentAlignment = Alignment.Center,
+        ) { Text("↘", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold) }
+        if (selectedExtra != null) {
+            Box(
+                Modifier.offset((frame.left - handle / 2).dp, (frame.top - handle / 2).dp).size(handle.dp)
+                    .background(Palette.Bad, CircleShape).border(2.dp, Color.White, CircleShape)
+                    .clickable { extras = extras.filter { it.id != selectedExtra }; selectedExtra = null; message = "Button removed (press Save to keep)" }
+                    .testTag("extraDeleteX"),
+                contentAlignment = Alignment.Center,
+            ) { Text("✕", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold) }
+        }
     }
 
     Column(
@@ -467,19 +526,12 @@ private fun ControllerSettingsPanel(vm: MainViewModel, profile: ControllerProfil
             )
             SmallChipButton("Recenter gyro") { vm.gyroRecenter() }
         }
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
-                Text("Black theme", color = neu.text, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-                Text("OFF: light buttons. ON: black buttons. Used by both controllers.", color = neu.textDim, fontSize = 11.sp)
-            }
-            androidx.compose.material3.Switch(checked = dark, onCheckedChange = { vm.setDarkControls(it) }, modifier = Modifier.testTag("set_dark"))
-        }
         val saver = vm.profiles.collectAsStateWithLifecycle().value.batterySaver
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Text("Battery saver", color = neu.text, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-                Text("ON: dim 60 Hz screen and 125 Hz Bluetooth while playing: much less battery and heat. " +
-                    "Black theme saves even more.", color = neu.textDim, fontSize = 11.sp)
+                Text("ON: 60 Hz screen and 125 Hz Bluetooth while playing: less battery and heat. " +
+                    "Brightness stays yours (phone settings).", color = neu.textDim, fontSize = 11.sp)
             }
             androidx.compose.material3.Switch(checked = saver, onCheckedChange = { vm.setBatterySaver(it) }, modifier = Modifier.testTag("set_saver"))
         }

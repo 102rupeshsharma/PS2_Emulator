@@ -369,7 +369,8 @@ class PcProfilesTest {
     @Test fun oldSettingsWithoutPcSectionLoadDefaults() {
         val old = """{"activeId":"standard","profiles":[{"id":"standard","name":"Standard PS2","builtIn":true}]}"""
         val s = ProfileCodec.decode(old)
-        assertEquals(PcStore(), s.pc); assertFalse(s.pcInputEnabled)
+        // 2.1.0: PC input defaults to ON, so a new phone + laptop pairing includes keyboard and mouse
+        assertEquals(PcStore(), s.pc); assertTrue(s.pcInputEnabled)
     }
 
     @Test fun actionLabels() {

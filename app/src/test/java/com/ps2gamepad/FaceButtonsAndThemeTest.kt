@@ -85,6 +85,24 @@ class FaceButtonsAndThemeUiTest {
 
     private fun bounds(tag: String) = rule.onNodeWithTag(tag, useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
 
+    @Test fun cornerHandleResizesTheSelectedControl() {
+        rule.onNodeWithTag("chip_Edit").performClick()
+        rule.onNodeWithTag("edit_L1").performClick()
+        val before = bounds("edit_L1").width
+        rule.onNodeWithTag("resizeHandle").performTouchInput { down(center); moveBy(Offset(30f, 30f)); moveBy(Offset(30f, 30f)); up() }
+        rule.waitForIdle()
+        assertTrue("bigger after dragging the corner", bounds("edit_L1").width > before + 10f)
+    }
+
+    @Test fun addedButtonCanBeDeletedWithTheRedX() {
+        rule.onNodeWithTag("chip_Edit").performClick()
+        rule.onNodeWithTag("chip_+ Button").performClick()
+        rule.onNodeWithTag("extraDeleteX").performClick()
+        rule.onNodeWithTag("chip_Save").performClick()
+        rule.waitForIdle()
+        assertTrue(vm.activeProfile.value.extraButtons.isEmpty())
+    }
+
     @Test fun dragTriangleAloneThenItStillPressesTriangle() {
         rule.onNodeWithTag("chip_Edit").performClick()
         val t0 = bounds("edit_TRIANGLE"); val c0 = bounds("edit_CIRCLE")
@@ -128,14 +146,11 @@ class ThemeSwitchUiTest {
         return androidx.compose.ui.graphics.Color(bmp.getPixel(root.width / 2, root.height - 4))
     }
 
-    @Test fun themeButtonSwitchesTheScreenBothWays() {
-        assertEquals(NeuThemes.LIGHT.bg, bg())
-        rule.onNodeWithTag("chip_☾ Dark").performClick()
-        assertTrue(vm.profiles.value.darkControls)
-        assertEquals(NeuThemes.DARK.bg, bg())
-        rule.onNodeWithTag("chip_☀ Light").performClick()
-        assertFalse(vm.profiles.value.darkControls)
-        assertEquals(NeuThemes.LIGHT.bg, bg())
+    @Test fun backgroundIsPureBlack() {
+        // 2.1.0: one black "glass" look (black pixels are off on AMOLED: lowest power)
+        assertEquals(androidx.compose.ui.graphics.Color.Black, bg())
+        rule.runOnIdle { vm.setDarkControls(false) } // old setting value: still black
+        assertEquals(androidx.compose.ui.graphics.Color.Black, bg())
     }
 }
 

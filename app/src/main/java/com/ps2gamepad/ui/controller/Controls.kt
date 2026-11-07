@@ -84,8 +84,8 @@ fun DigitalButton(
     modifier: Modifier = Modifier,
     /** Which control is pressing (extra buttons use their own id so they combine with the built-in one). */
     source: String = ControllerInputManager.BASE_SOURCE,
-    /** 0..3 = draw the PlayStation symbol (triangle, circle, cross, square) instead of [label]. */
-    faceMark: Int = -1,
+    /** Face buttons: coloured ring + label (Y yellow, B red, A green, X blue). */
+    accent: Color? = null,
 ) {
     var pressed by remember(resetKey) { mutableStateOf(false) }
     val haptic = rememberHaptic()
@@ -114,11 +114,10 @@ fun DigitalButton(
                     roundRectPath(Offset(inset, inset), sz, if (shape == KeyShape.PILL) sz.height / 2 else sz.height * 0.3f)
                 }
             }
-            neuPath(path, neu, pressed, d)
-            if (faceMark >= 0 && style.showLabels) drawFaceMark(faceMark, center, size.minDimension / 2 - inset, skin.label)
+            neuPath(path, neu, pressed, d, accent = accent)
         }
-        if (style.showLabels && faceMark < 0) {
-            Text(label, color = if (pressed) skin.labelPressed else skin.label, fontSize = fontSize, fontWeight = FontWeight.Bold, maxLines = 1)
+        if (style.showLabels) {
+            Text(label, color = accent ?: if (pressed) skin.labelPressed else skin.label, fontSize = fontSize, fontWeight = FontWeight.Bold, maxLines = 1)
         }
     }
 }
@@ -152,29 +151,26 @@ fun DpadControl(input: ControllerInputManager, resetKey: Int, modifier: Modifier
     ) {
         val s = size.minDimension
         val c = center
-        val arm = s * 0.30f
-        val len = s * 0.47f
-        val depth = (s * 0.035f).coerceIn(3f, 10f)
-        fun arm(angleDeg: Float, active: Boolean) {
-            val p = Path().apply {
-                moveTo(0f, -len); lineTo(arm / 2, -len); lineTo(arm / 2, -arm * 0.55f)
-                lineTo(0f, -arm * 0.12f); lineTo(-arm / 2, -arm * 0.55f); lineTo(-arm / 2, -len); close()
-            }
-            rotate(angleDeg, c) {
-                translate(c.x, c.y) {
-                    neuPath(p, neu, active, depth)
-                    if (labels) {
-                        val tri = Path().apply { moveTo(0f, -len * 0.86f); lineTo(arm * 0.18f, -len * 0.72f); lineTo(-arm * 0.18f, -len * 0.72f); close() }
-                        drawPath(tri, if (active) skin.labelPressed else skin.label)
-                    }
-                }
+        val depth = (s * 0.03f).coerceIn(2f, 8f)
+        // base plate
+        drawCircle(neu.key.copy(alpha = 0.55f), radius = s * 0.48f, center = c)
+        drawCircle(neu.ring.copy(alpha = 0.35f), radius = s * 0.48f, center = c, style = Stroke(depth * 0.5f))
+        val off = s * 0.29f
+        val r = s * 0.155f
+        fun dir(dx: Float, dy: Float, angleDeg: Float, active: Boolean) {
+            val bc = Offset(c.x + dx * off, c.y + dy * off)
+            neuPath(circlePath(bc, r), neu, active, depth)
+            if (labels) rotate(angleDeg, bc) {
+                val g = r * 0.42f
+                val chevron = Path().apply { moveTo(bc.x - g, bc.y + g * 0.45f); lineTo(bc.x, bc.y - g * 0.55f); lineTo(bc.x + g, bc.y + g * 0.45f) }
+                drawPath(chevron, if (active) skin.labelPressed else skin.label, style = Stroke(width = r * 0.16f, cap = StrokeCap.Round, join = androidx.compose.ui.graphics.StrokeJoin.Round))
             }
         }
         val h = dpad.hat
-        arm(0f, h == Hat.UP || h == Hat.UP_LEFT || h == Hat.UP_RIGHT)
-        arm(90f, h == Hat.RIGHT || h == Hat.UP_RIGHT || h == Hat.DOWN_RIGHT)
-        arm(180f, h == Hat.DOWN || h == Hat.DOWN_LEFT || h == Hat.DOWN_RIGHT)
-        arm(270f, h == Hat.LEFT || h == Hat.UP_LEFT || h == Hat.DOWN_LEFT)
+        dir(0f, -1f, 0f, h == Hat.UP || h == Hat.UP_LEFT || h == Hat.UP_RIGHT)
+        dir(1f, 0f, 90f, h == Hat.RIGHT || h == Hat.UP_RIGHT || h == Hat.DOWN_RIGHT)
+        dir(0f, 1f, 180f, h == Hat.DOWN || h == Hat.DOWN_LEFT || h == Hat.DOWN_RIGHT)
+        dir(-1f, 0f, 270f, h == Hat.LEFT || h == Hat.UP_LEFT || h == Hat.DOWN_LEFT)
     }
 }
 
@@ -291,12 +287,13 @@ fun AnalogStick(
 fun androidx.compose.ui.graphics.drawscope.DrawScope.drawNeuStick(
     neu: NeuTheme, c: Offset, travel: Float, s: Float, knob: Offset, held: Boolean, deadZone: Float = 0f,
 ) {
-    val depth = (s * 0.03f).coerceIn(3f, 12f)
-    neuPath(circlePath(c, travel + s * 0.07f), neu, pressed = true, depth = depth)
+    val depth = (s * 0.03f).coerceIn(2f, 8f)
+    neuPath(circlePath(c, travel + s * 0.07f), neu, pressed = false, depth = depth, fill = neu.key.copy(alpha = 0.6f))
+    drawCircle(neu.ring.copy(alpha = 0.25f), radius = travel * 0.62f, center = c, style = Stroke(s * 0.006f))
     if (deadZone > 0f) drawCircle(neu.labelDim.copy(alpha = 0.25f), radius = travel * deadZone, center = c, style = Stroke(s * 0.006f))
     val kr = s * 0.17f
-    neuPath(circlePath(c + knob, kr), neu, pressed = false, depth = depth * if (held) 0.6f else 1f)
-    drawCircle(neu.labelDim.copy(alpha = 0.35f), radius = kr * 0.55f, center = c + knob, style = Stroke(s * 0.008f))
+    neuPath(circlePath(c + knob, kr), neu, pressed = held, depth = depth, fill = Color(0xFF262A32))
+    drawCircle(neu.ring.copy(alpha = 0.5f), radius = kr * 0.6f, center = c + knob, style = Stroke(s * 0.008f))
 }
 
 const val STICK_TRAVEL = 0.27f // knob travel radius, fraction of the stick area

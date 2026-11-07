@@ -41,13 +41,13 @@ object Skins {
     /** Skin colours derived from a soft-UI theme: keys share the background colour (1.8.0). */
     fun of(t: NeuTheme) = SkinTheme(
         screen = t.bg, bodyTop = t.bg, bodyBottom = t.bg, bodyEdge = t.bg,
-        centerPanel = t.bg, key = t.bg, keyPressed = t.pressed, keyEdge = t.bg,
-        label = t.label, labelPressed = t.label, faceMarks = FaceMarks.PS_SYMBOLS,
-        faceColors = List(4) { t.label }, faceFilled = true,
-        stickBase = t.pressed, stickKnobLight = t.bg, stickKnobDark = t.bg, accent = t.accent,
+        centerPanel = t.key, key = t.key, keyPressed = t.pressed, keyEdge = t.ring,
+        label = t.label, labelPressed = Color.White, faceMarks = FaceMarks.LETTERS,
+        faceColors = FaceColors.COLORS, faceLetters = FaceColors.LETTERS, faceFilled = false,
+        stickBase = t.key, stickKnobLight = t.pressed, stickKnobDark = t.key, accent = t.accent,
     )
 
-    val PS2 = of(NeuThemes.LIGHT)
+    val PS2 = of(NeuThemes.GLASS)
 }
 
 val LocalSkin = staticCompositionLocalOf { Skins.PS2 }

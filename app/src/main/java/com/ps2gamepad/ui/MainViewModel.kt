@@ -457,6 +457,11 @@ class MainViewModel(
         compatibility.forEach { log.add(it) }
         viewModelScope.launch { hid.state.collect(::onHidState) }
         viewModelScope.launch { bluetoothState.collect(::onBluetoothState) }
+        viewModelScope.launch {
+            settings.loaded.collect { loaded ->
+                if (loaded && registerWhenLoaded) { registerWhenLoaded = false; if (wantRegistered) registerInternal() }
+            }
+        }
         // battery saver also covers the saved setting once it is loaded from disk
         viewModelScope.launch { settings.store.map { it.batterySaver }.distinctUntilChanged().collect { hid.setPowerSaving(it) } }
     }
@@ -519,11 +524,24 @@ class MainViewModel(
         registerInternal()
     }
 
+    /**
+     * Set when a registration was requested before the saved settings were loaded. Registering then
+     * would use the DEFAULT "PC input" value instead of the saved one: with PC input ON the phone was
+     * registered as a plain gamepad, so Windows showed "Online" but keyboard/mouse/gyro-mouse
+     * reports were refused (seen on slower phones, e.g. Samsung). Fixed in 2.1.0.
+     */
+    private var registerWhenLoaded = false
+
     private fun registerInternal() {
         when {
             bluetoothState.value != BluetoothState.ENABLED -> log.add("Cannot register: ${bluetoothState.value.label}")
             permission.value != PermissionState.GRANTED -> log.add("Cannot register: Bluetooth permission required")
-            else -> { log.add("Registering HID gamepad..."); hid.register(autoConnectPlugged = !userDisconnected, composite = profiles.value.pcInputEnabled) }
+            !settings.loaded.value -> { registerWhenLoaded = true; log.add("Waiting for saved settings before registering...") }
+            else -> {
+                val composite = profiles.value.pcInputEnabled
+                log.add(if (composite) "Registering HID gamepad + keyboard + mouse..." else "Registering HID gamepad...")
+                hid.register(autoConnectPlugged = !userDisconnected, composite = composite)
+            }
         }
     }
 

@@ -1,5 +1,29 @@
 # Release notes
 
+## 2.1.0 (versionCode 15), 2026-11-07: PC input fix for new phones/laptops, black glass controllers
+
+- **Fix: "Online" but PC controls / gyro mouse did nothing** (reported on a Samsung phone + another
+  laptop). The app could register with Bluetooth before its saved settings had loaded, i.e. with
+  the default PC-input value instead of the saved one; it then registered as a plain gamepad and
+  every keyboard/mouse/gyro-mouse report was refused while the status still said Online.
+  Registration now waits for the saved settings (regression test added).
+- **PC input is ON by default for new installs**, so the first pairing of a new phone + laptop
+  already includes keyboard and mouse. Existing installs keep their saved choice.
+- **"?" help on the PC controller:** explains the one fix the app cannot do itself: if Windows
+  paired with the phone before PC input was on, remove the phone in Windows and pair once more.
+- **New controller look (both controllers):** pure black background (AMOLED pixels off), dark
+  "glass" buttons with a thin ring, round D-pad with four arrow buttons, sticks with a ringed knob.
+  Face buttons are **Y (yellow, top) / B (red, right) / A (green, bottom) / X (blue, left)**; they
+  still send the same HID buttons (Triangle/Circle/Cross/Square), so PCSX2 bindings are unchanged.
+  PC buttons labelled A/B/X/Y use the same colours. The light/black theme switch is removed
+  (there is one black look).
+- **Brightness is yours again:** battery saver no longer forces the screen to 20 % while a controller
+  is open, so the phone's own brightness control works while playing. Battery saver keeps the 60 Hz
+  screen and 125 Hz Bluetooth.
+- **Edit mode like other controller apps:** the selected control gets a dashed frame, a blue corner
+  handle (drag to resize) and, for added buttons, a red x to delete.
+- Tests: 314 (312 passed, 2 skipped). The Samsung fix is not yet confirmed on that phone.
+
 ## 2.0.0 (versionCode 14), 2026-11-07: PadLink, battery saver, UPI support
 
 - **New name: PadLink** (it is more than a PS2 pad: emulators, PC games with keyboard + mouse,

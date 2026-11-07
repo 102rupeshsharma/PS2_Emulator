@@ -41,6 +41,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -107,6 +108,7 @@ fun PcControllerScreen(vm: MainViewModel) {
     val neu = NeuThemes.of(store.darkControls)
     var selected by remember { mutableStateOf<String?>(null) }
     var confirmRestore by remember { mutableStateOf(false) }
+    var showHelp by remember { mutableStateOf(false) }
 
     BackHandler { if (editing) vm.setPcEditMode(false) else vm.navigate(Screen.MODE_SELECT) }
 
@@ -156,7 +158,7 @@ fun PcControllerScreen(vm: MainViewModel) {
                 ) { vm.togglePcGyro() }
                 Chip("⟳", "pc_recenter") { vm.pcGyroRecenter() }
                 Chip("Edit", "pc_edit") { vm.setPcEditMode(true) }
-                Chip(if (neu.dark) "☀" else "☾", "pc_theme") { vm.setDarkControls(!neu.dark) }
+                Chip("?", "pc_help") { showHelp = true }
             }
         }
         if (!store.pcInputEnabled && !editing) {
@@ -187,6 +189,25 @@ fun PcControllerScreen(vm: MainViewModel) {
             }
         }
     }
+    }
+    if (showHelp) {
+        AlertDialog(
+            onDismissRequest = { showHelp = false },
+            title = { Text("Keys, mouse or gyro not reaching the PC?") },
+            text = {
+                Text(
+                    "Windows remembers what kind of device the phone was when it was FIRST paired. If it was paired " +
+                        "before PC input was on (or with an older version, or on another laptop), Windows only knows the gamepad " +
+                        "part, so it shows \"Online\" but ignores keyboard and mouse.\n\n" +
+                        "Fix (once per laptop):\n" +
+                        "1. On the laptop: Settings > Bluetooth & devices > PadLink (or \"PS2 Gamepad\") > Remove device.\n" +
+                        "2. Add device > Bluetooth > PadLink, confirm the code on both screens.\n" +
+                        "3. Come back here: A should type a space in Notepad and the gyro should move the mouse.\n\n" +
+                        "PC input is " + (if (store.pcInputEnabled) "ON." else "OFF: turn it on first (PC profiles & settings)."),
+                )
+            },
+            confirmButton = { TextButton(onClick = { showHelp = false }, modifier = Modifier.testTag("pc_helpOk")) { Text("OK") } },
+        )
     }
     if (confirmRestore) {
         AlertDialog(
@@ -227,6 +248,7 @@ private fun StatusChip(text: String, severity: Severity) {
 private fun PcButton(vm: MainViewModel, c: PcControl, epoch: Int, modifier: Modifier) {
     var pressed by remember(epoch) { mutableStateOf(false) }
     val neu = LocalNeu.current
+    val accent = com.ps2gamepad.ui.controller.FaceColors.forLabel(c.label)
     Box(
         modifier.trackPointers(epoch) { pointers, t ->
             val now = pointers.isNotEmpty()
@@ -234,12 +256,12 @@ private fun PcButton(vm: MainViewModel, c: PcControl, epoch: Int, modifier: Modi
                 pressed = now
                 if (now) vm.pcPress(c, t) else vm.pcRelease(c, t)
             }
-        }.neuBackground(neu, pressed)
+        }.neuBackground(neu, pressed, cornerFraction = if (accent != null) 0.5f else 0.3f, accent = accent)
             .testTag("pc_${c.id}"),
         contentAlignment = Alignment.Center,
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(c.label, color = neu.label, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+            Text(c.label, color = accent ?: neu.label, fontSize = if (accent != null) 17.sp else 13.sp, fontWeight = FontWeight.Bold, maxLines = 1)
             Text(c.action.label, color = neu.labelDim, fontSize = 9.sp, maxLines = 1)
         }
     }
@@ -304,7 +326,12 @@ private fun EditableControl(
     Box(
         modifier.offset { androidx.compose.ui.unit.IntOffset(drag.x.toInt(), drag.y.toInt()) } // moves in layout phase, no recomposition
             .neuBackground(neu, pressed = false, cornerFraction = if (c.kind == PcControlKind.BUTTON) 0.3f else 0.5f)
-            .border(if (selected) 3.dp else 1.dp, if (selected) PcAccent else Color.White.copy(alpha = 0.5f), if (c.kind == PcControlKind.BUTTON) RoundedCornerShape(30) else CircleShape)
+            .then(if (selected) Modifier.drawBehind {
+                drawRoundRect(
+                    PcAccent, cornerRadius = androidx.compose.ui.geometry.CornerRadius(8.dp.toPx()),
+                    style = Stroke(width = 1.5.dp.toPx(), pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(8.dp.toPx(), 5.dp.toPx()))),
+                )
+            } else Modifier)
             .pointerInput(c.id) { detectTapGestures { onSelect() } }
             .pointerInput(c.id, c.cx, c.cy) {
                 detectDragGestures(

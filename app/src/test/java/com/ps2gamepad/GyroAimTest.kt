@@ -48,7 +48,10 @@ class GyroAimTest {
         }
     }
 
-    private inner class Session(settings: GyroAim = GyroAim(enabled = true), val game: Shooter = Shooter(), val biasRadS: Float = 0f) {
+    private inner class Session(settings: GyroAim = GyroAim(enabled = true), val game: Shooter = Shooter(), val biasRadS: Float = 0f,
+                                /** Hand tremor: peak °/s of a real hand's 8-12 Hz shake (0 = robot hand). */
+                                val tremorDps: Float = 0f) {
+        private val rnd = java.util.Random(42)
         val engine = GyroAimEngine().also { it.settings = settings }
         var t = 0L
         var stick = StickVector.ZERO
@@ -59,7 +62,10 @@ class GyroAimTest {
             val steps = (seconds * 200).toInt()
             repeat(steps) {
                 t += 5_000_000L
-                val wScreen = upScreen * (-yawDps * rad) + e1 * (-pitchDps * rad)
+                val ts = t / 1e9
+                val shakeYaw = tremorDps * (0.6 * kotlin.math.sin(2 * Math.PI * 9.0 * ts) + 0.4 * kotlin.math.sin(2 * Math.PI * 11.3 * ts + 1.0) + 0.3 * rnd.nextGaussian()).toFloat()
+                val shakePitch = tremorDps * (0.6 * kotlin.math.sin(2 * Math.PI * 10.1 * ts + 2.0) + 0.4 * kotlin.math.sin(2 * Math.PI * 8.4 * ts) + 0.3 * rnd.nextGaussian()).toFloat()
+                val wScreen = upScreen * (-(yawDps + shakeYaw) * rad) + e1 * (-(pitchDps + shakePitch) * rad)
                 val w = toDevice(wScreen)
                 engine.onSample(MotionSample(SensorKind.ACCELEROMETER, toDevice(upScreen).x * 9.81f, toDevice(upScreen).y * 9.81f, toDevice(upScreen).z * 9.81f, t, 1))
                 engine.onSample(MotionSample(SensorKind.GYROSCOPE, w.x + biasRadS, w.y, w.z, t, 1))?.let { stick = it }
@@ -170,6 +176,30 @@ class GyroAimTest {
         val normal = Session(); normal.hold(1f); normal.turn(10f, 0f, 1f)
         val fast = Session(GyroAim(enabled = true, sensitivity = 2f)); fast.hold(1f); fast.turn(10f, 0f, 1f)
         assertEquals(normal.game.yaw * 2f, fast.game.yaw, normal.game.yaw * 0.15f)
+    }
+
+    // ------------------------------------------------------------------ a real (shaky) hand
+
+    @Test fun holdingAimOnATargetWithARealShakyHandKeepsTheCrosshairSteady() {
+        // A real hand never holds perfectly still: ~1.5 °/s of 8-12 Hz shake. The camera must not
+        // wander or jitter around the target while the player tries to hold aim.
+        val s = Session(tremorDps = 1.5f)
+        s.hold(1f)
+        val yaw0 = s.game.yaw; val pitch0 = s.game.pitch
+        var maxDev = 0f
+        repeat(300) { s.hold(0.01f); maxDev = maxOf(maxDev, abs(s.game.yaw - yaw0), abs(s.game.pitch - pitch0)) }
+        println("PLAY | holding aim 3 s, shaky hand 1.5 deg/s | crosshair wandered at most %.2f deg".format(maxDev))
+        assertTrue("crosshair wandered $maxDev°", maxDev < 1.5f)
+    }
+
+    @Test fun slowTrackingStillWorksWithAShakyHand() {
+        val s = Session(tremorDps = 1.5f)
+        s.hold(1f)
+        val y0 = s.game.yaw
+        s.turn(5f, 0f, 2f) // follow a walking enemy: 10° of phone over 2 s
+        val moved = s.game.yaw - y0
+        println("PLAY | slow tracking 5 deg/s for 2 s, shaky hand | camera %.1f deg (steady hand: 15 deg)".format(moved))
+        assertTrue("tracking with a shaky hand: $moved° (expected about 15°)", moved in 11f..19f)
     }
 
     /** Prints what a player would see, for the release notes (no assertion). */

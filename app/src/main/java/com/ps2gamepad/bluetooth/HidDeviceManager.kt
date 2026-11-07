@@ -65,7 +65,6 @@ class HidDeviceManager(
     private val context: Context,
     private val adapterProvider: () -> BluetoothAdapter?,
     private val log: (String) -> Unit,
-    private val fastSendIntervalMs: Long = 4,
 ) : HidController {
 
     private val _state = MutableStateFlow(HidState())
@@ -371,8 +370,10 @@ class HidDeviceManager(
         return true
     }
 
+    /** Pacing, priority and confirmation of reports (see [SendScheduler]). Used by the sender thread only. */
+    private val scheduler = SendScheduler(axisMs = { if (powerSaving) SendScheduler.AXIS_MS_SAVER else SendScheduler.AXIS_MS })
+
     private fun senderLoop() {
-        var lastSendAt = 0L
         var windowStart = SystemClock.uptimeMillis()
         var windowCount = 0
         var latencySum = 0L
@@ -380,25 +381,30 @@ class HidDeviceManager(
         var sent = 0L
         var failures = 0L
         var lastLatency = -1L
-        var lastSentBytes: ByteArray? = null
         var lastPublish = 0L
         var rate = 0
         var retries = 0
         while (!closed) {
-            try {
-                // Idle: sleep until a report is queued (no periodic wake-ups; close() signals too).
-                lock.withLock { while (queue.isEmpty() && !closed) hasWork.await() }
-                // Pace first, then take the head: axis-only updates that arrived meanwhile were
-                // coalesced into it, so we always send the freshest stick position.
-                val wait = (if (powerSaving) POWER_SAVING_SEND_INTERVAL_MS else fastSendIntervalMs) - (SystemClock.uptimeMillis() - lastSendAt)
-                if (wait > 0) Thread.sleep(wait)
+            // Ask the scheduler; sleep until something is due (a newly queued report wakes us early).
+            val step: SendStep.Send = try {
+                lock.withLock {
+                    var s: SendStep.Send? = null
+                    while (s == null && !closed) {
+                        when (val n = scheduler.next(queue, SystemClock.uptimeMillis())) {
+                            SendStep.Idle -> hasWork.await()
+                            is SendStep.Wait -> hasWork.await(n.ms, TimeUnit.MILLISECONDS)
+                            is SendStep.Send -> s = n
+                        }
+                    }
+                    s
+                }
             } catch (e: InterruptedException) {
                 break
-            }
-            val item = lock.withLock { queue.poll() } ?: continue
+            } ?: break
+            val item = step.report
             val hid = hidDevice
             val dev = connectedDevice
-            if (hid == null || dev == null) continue
+            if (hid == null || dev == null) { scheduler.reset(); continue }
 
             val ok = try {
                 hid.sendReport(dev, item.reportId, item.bytes)
@@ -406,13 +412,11 @@ class HidDeviceManager(
                 false
             }
             val now = SystemClock.uptimeMillis()
-            lastSendAt = now
+            scheduler.onSent(step, ok, now)
             if (ok) {
                 retries = 0
                 sent++
-                lastLatency = now - item.eventUptimeMs
-                latencySum += lastLatency; latencyN++
-                if (item.reportId == HidDescriptor.REPORT_ID) lastSentBytes = item.bytes
+                if (!step.confirm) { lastLatency = now - item.eventUptimeMs; latencySum += lastLatency; latencyN++ }
             } else {
                 failures++
                 if (failures % 50 == 1L) log("sendReport() failed (total $failures)")
@@ -437,7 +441,7 @@ class HidDeviceManager(
             if (now - lastPublish >= 250 || !ok) {
                 lastPublish = now
                 val avg = if (latencyN > 0) latencySum.toDouble() / latencyN else -1.0
-                _stats.value = SenderStats(sent, failures, rate, lastLatency, avg, lastSentBytes)
+                _stats.value = SenderStats(sent, failures, rate, lastLatency, avg, scheduler.lastSent)
             }
         }
     }
@@ -469,8 +473,6 @@ class HidDeviceManager(
     }
 
     companion object {
-        /** Report pacing in battery saver (125 Hz). */
-        const val POWER_SAVING_SEND_INTERVAL_MS = 8L
         const val MAX_RETRIES = 5
         const val RETRY_DELAY_MS = 15L
 

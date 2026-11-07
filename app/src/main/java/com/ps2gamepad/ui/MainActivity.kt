@@ -56,6 +56,16 @@ class MainActivity : ComponentActivity() {
         window.attributes = lp
     }
 
+    /**
+     * 3.2.0: on the controller, touches are delivered the moment the screen reports them instead of
+     * being collected and handed over once per frame (up to 16 ms at 60 Hz). Presses and releases
+     * reach the PC sooner; the extra touch events only happen while fingers are down.
+     */
+    private fun applyLowLatencyTouch(on: Boolean) {
+        if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.R) return
+        window.decorView.requestUnbufferedDispatch(if (on) android.view.InputDevice.SOURCE_CLASS_POINTER else android.view.InputDevice.SOURCE_CLASS_NONE)
+    }
+
     /** The display mode with the current resolution and the lowest refresh rate of at least 60 Hz (0 = no preference). */
     private fun lowRefreshModeId(): Int {
         @Suppress("DEPRECATION") val display = windowManager.defaultDisplay ?: return 0
@@ -77,6 +87,7 @@ class MainActivity : ComponentActivity() {
                     if (playing) window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
                     else window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
                     applyPowerSaving(playing && saver)
+                    applyLowLatencyTouch(playing)
                 }
             }
         }

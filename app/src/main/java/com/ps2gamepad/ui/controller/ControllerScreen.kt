@@ -524,7 +524,10 @@ private fun ControllerSettingsPanel(vm: MainViewModel, profile: ControllerProfil
         modifier.width(400.dp).padding(vertical = 40.dp)
             .background(neu.panel, RoundedCornerShape(18.dp))
             .border(1.dp, neu.labelDim.copy(alpha = 0.4f), RoundedCornerShape(18.dp))
-            .pointerInput(Unit) { awaitPointerEventScope { while (true) awaitPointerEvent().changes.forEach { it.consume() } } }
+            // Being a pointer-input node makes the whole panel a touch target, so touches on it never
+            // reach the controls behind it. It must NOT consume: a real finger always moves a little,
+            // and consumed moves made every chip, switch, slider and the scroll cancel (3.1.1 fix).
+            .pointerInput(Unit) { awaitPointerEventScope { while (true) awaitPointerEvent() } }
             .verticalScroll(androidx.compose.foundation.rememberScrollState()) // short screens: nothing is cut off
             .padding(16.dp)
             .testTag("controllerSettings"),
@@ -558,7 +561,7 @@ private fun ControllerSettingsPanel(vm: MainViewModel, profile: ControllerProfil
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Text("Battery saver", color = neu.text, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-                Text("ON: 60 Hz screen and 125 Hz Bluetooth while playing. Brightness stays yours.", color = neu.textDim, fontSize = 11.sp)
+                Text("ON: 60 Hz screen and fewer stick updates (buttons stay instant). Brightness stays yours.", color = neu.textDim, fontSize = 11.sp)
             }
             androidx.compose.material3.Switch(checked = saver, onCheckedChange = { vm.setBatterySaver(it) }, modifier = Modifier.testTag("set_saver"))
         }

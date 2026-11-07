@@ -1,5 +1,36 @@
 # Release notes
 
+## 3.2.0 (versionCode 18), 2026-11-08: Settings fix, sticks stop at once, faster buttons, user guide
+
+- **Fix: Settings panel did nothing while playing** (style, face labels, switches, sliders, scrolling).
+  The panel grabbed every finger movement to protect the controls behind it, and a real finger always
+  moves a few pixels during a tap or swipe, so every tap and scroll was cancelled. Older tests used a
+  perfectly still synthetic finger and passed. Now the panel only blocks touches; it no longer grabs
+  movements. New tests tap and swipe like a real thumb (lands, wobbles, lifts), and they fail on the
+  old code exactly as reported.
+- **Fix: character kept moving 1-2 s after letting go of a stick.** The app handed stick movement to
+  Bluetooth faster than the link to the PC could carry it (250 Hz, or 125 Hz in battery saver). The
+  extra reports queued up in Android's Bluetooth stack, and "stick released" waited behind them. New
+  report scheduler:
+  - button / D-pad changes and a stick returning to centre are sent at once and never wait behind
+    movement;
+  - plain movement is limited to about 80 per second (about 60 in battery saver); games read the pad
+    once per frame (60 Hz), and movement superseded by a newer report is skipped instead of sent late;
+  - every button change and stop is confirmed twice (about 30 ms and 100 ms later), so a report the
+    Bluetooth stack drops cannot leave a button held or a character walking.
+  In a simulated Bluetooth link that carries about 89 reports/s, the old sender kept the character
+  walking 1218 ms after the thumb lifted; the new one stops it within 10 ms. This is a simulation of
+  the most likely cause; it is not yet confirmed on the phone.
+- **Faster buttons:** on the controller screen, touches are delivered the moment the screen reports
+  them, not collected and handed over once per frame (up to 16 ms at 60 Hz). Android 11+.
+- **Tested like a player:** HumanPlayTest (real-thumb taps and swipes on Settings while walking,
+  letting go of each stick, mashing buttons while walking), SendSchedulerTest (simulated Bluetooth
+  link), and the gyro play test now with a real hand's shake (crosshair wandered at most 0.08° while
+  holding aim; slow tracking still works).
+- **README:** 30-second summary, "what you need", playing tips, a table of every setting, updating,
+  and new troubleshooting rows.
+- Tests: 273 automated tests (271 passed, 2 skipped). Not yet checked on the phone.
+
 ## 3.1.0 (versionCode 17), 2026-11-07: gyro aiming for shooters
 
 - **Gyro aiming is back, rebuilt for aiming.** The old gyro (1.3 to 2.x) mapped the phone's tilt

@@ -218,6 +218,20 @@ Properties (Z / Z-rotation = right stick).
 Automated (simulated sensors, MOCK Bluetooth): GyroAimTest (11, including the simulated play test),
 GyroChipUiTest (2): all passed.
 
+## 4.12 Settings while playing, stopping, button latency (3.2.0) ⏳
+
+| # | Test | Expected | Result |
+|---|---|---|---|
+| P1 | While walking in a game, open Settings and tap Outline, △ ○ ✕ □, Battery saver | Each change applies at once | ⏳ |
+| P2 | Scroll the Settings panel with a finger | It scrolls; switches at the bottom work | ⏳ |
+| P3 | Walk for 5-10 s with the left stick, let go | Character stops at once (no 1-2 s walk-on) | ⏳ |
+| P4 | Same with the right stick (camera) | Camera stops at once | ⏳ |
+| P5 | Mash Cross/Square while walking | Every press counts; nothing stays pressed | ⏳ |
+| P6 | Repeat P3 with Battery saver ON and OFF | Stops at once in both | ⏳ |
+
+Automated (MOCK Bluetooth, simulated link): HumanPlayTest (5), SendSchedulerTest (4), gyro shaky-hand
+tests (2): all passed. HumanPlayTest fails on the 3.1 Settings code, as reported.
+
 ## 5. Final acceptance checklist
 
 | # | Criterion | Status |

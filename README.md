@@ -16,7 +16,7 @@ needed.
 1. Install **PadLink** on your phone ([Download](#-download) at the bottom of this page).
 2. Pair the phone with your laptop over Bluetooth (the laptop lists it as **PadLink**).
 3. In your emulator, bind each button once.
-4. Every next time: open PadLink → **Open Controller** → play.
+4. Every next time: open PadLink → tap **Connect** → **Open Controller** → play.
 
 The full guide below walks you through each step.
 
@@ -42,7 +42,8 @@ Setup takes about 5 minutes the first time. After that you just open the app.
 1. Turn **Bluetooth ON** on both the phone and the laptop.
 2. Open **PadLink** on the phone and tap **Allow** when it asks for Bluetooth access.
    The app renames the phone's Bluetooth name to **"PadLink"** so you can find it easily.
-3. Tap **Make phone visible to PC** and press **Allow** on the popup.
+3. Tap the big **Connect** button and press **Allow** on the popup (it makes the phone visible to
+   the laptop for pairing). PadLink never connects on its own: nothing happens until you tap Connect.
 4. On the laptop: **Settings → Bluetooth & devices → Add device → Bluetooth**.
 5. Click **PadLink** in the list. A code appears on **both** screens: if it matches, press **Connect**
    on the laptop and **Pair** on the phone.
@@ -73,8 +74,8 @@ Setup takes about 5 minutes the first time. After that you just open the app.
 
 ### Step 5: Play
 
-Every next time: turn on Bluetooth on both devices → open **PadLink** → it connects by itself →
-**Open Controller** → pick your loadout → play. **Keep the app open while you play** (Android stops
+Every next time: turn on Bluetooth on both devices → open **PadLink** → tap **Connect** (it connects
+to the laptop you used last) → when it says **Connected ✓**, tap **Open Controller** → pick your loadout → play. **Keep the app open while you play** (Android stops
 Bluetooth controllers that run in the background).
 
 The bar at the top of the controller:
@@ -131,14 +132,15 @@ layouts and settings stay. You only need to pair again if the guide or the relea
 
 | Problem | Fix |
 |---|---|
-| **PadLink is not in the laptop's Bluetooth list** | On the phone tap **Make phone visible to PC** again, then search again on the laptop within 2 minutes. |
+| **PadLink is not in the laptop's Bluetooth list** | On the phone tap **Pair a laptop again / a new laptop** (under Connect), then search again on the laptop within 2 minutes. |
 | **Pairs, but never says Connected** | Laptop: **Bluetooth & devices → PadLink → Remove device**. Phone: Bluetooth settings → forget the laptop. Then do Step 2 again. |
 | **Connected, but the game doesn't react** | Check `joy.cpl` (Step 3). If it works there, bind the buttons in the emulator (Step 4). |
 | **Works in `joy.cpl`, not in a PC (non-emulator) game** | That game only accepts Xbox controllers. Add it to **Steam** and turn on Steam Input for generic controllers, or use **x360ce**. |
 | **Character keeps moving after I let go of the stick** | Update to **3.2.0** or newer (fixed: the app now sends stick movement at a rate the Bluetooth link can carry, and "stop" always goes first). If it still happens, move the phone closer to the laptop and turn off other Bluetooth devices you aren't using. |
 | **Buttons feel slow / laggy** | Update to **3.2.0** or newer (touches go straight to Bluetooth, buttons never wait behind stick movement). USB 3 ports and hubs right next to a Bluetooth dongle can disturb it: use a USB 2 port or a short extension cable for the dongle. |
 | **Settings: buttons don't react, can't scroll** | Update to **3.2.0** or newer (fixed). |
-| **Stopped working after switching apps** | Go back to PadLink: it reconnects by itself within a few seconds. Keep it open while playing. |
+| **Stopped working after switching apps** | Go back to PadLink: once you have tapped Connect, it reconnects by itself within a few seconds. Keep it open while playing. |
+| **Connect says "Waiting for the laptop…" for a long time** | Turn Bluetooth on on the laptop. If the laptop was never paired, add **PadLink** on the laptop (Step 2). After 20 seconds the button comes back so you can try again. |
 | **Gyro: small aim does nothing** | **Settings → Game dead-zone fix**: raise it a little. Camera creeps on its own? Lower it. |
 | **Gyro: up/down is the wrong way** | **Settings → Invert up/down**. |
 | **Phone gets warm / battery drains** | Keep **Battery saver** ON (Settings), lower the phone's brightness, use **Outline** buttons. |
@@ -146,6 +148,10 @@ layouts and settings stay. You only need to pair again if the guide or the relea
 
 
 ### Screens
+
+| Start screen (portrait) | Connected |
+|---|---|
+| <img src="docs/screenshots/01_home_connect.png" width="260"> | <img src="docs/screenshots/02_home_connected.png" width="260"> |
 
 | Real buttons (Y B A X) | Real buttons (△ ○ ✕ □) |
 |---|---|
@@ -161,7 +167,7 @@ layouts and settings stay. You only need to pair again if the guide or the relea
 
 ---
 
-**Version 3.2.0.** 273 automated tests (271 passed, 2 skipped).
+**Version 3.3.0.** 278 automated tests (275 passed, 3 skipped).
 - Confirmed on real hardware by the developer (POCO F6 + Windows 11): registration, pairing,
   Windows game controller test (`joy.cpl`), PCSX2 with manual binding.
 - Not yet confirmed on hardware: gyro aiming, button styles, combo buttons, loadouts and the battery saver.
@@ -302,12 +308,12 @@ Source layout: `bluetooth/` (HID layer), `controller/` (input manager, stick mat
 
 ## 📥 Download
 
-### **[⬇️ Download PadLink (v3.2.0, 2.5 MB)](https://raw.githubusercontent.com/102rupeshsharma/PS2_Emulator/main/download/PadLink.apk)**
+### **[⬇️ Download PadLink (v3.3.0, 2.5 MB)](https://raw.githubusercontent.com/102rupeshsharma/PS2_Emulator/main/download/PadLink.apk)**
 
 Tap the link on your Android phone, open the downloaded file and tap **Install**. It installs over an
 older version, and your loadouts are kept.
 
-SHA-256: `2ef008fc706a4155d1c6dbc33e5c03caab3aee3d86cccd3c48753b79ce16b496`
+SHA-256: `9ad1f6c5e99fbd8e0621b87c51a8411a74753fa806605f6d44db11b897888dfc`
 
 ## ❤️ Support this project
 

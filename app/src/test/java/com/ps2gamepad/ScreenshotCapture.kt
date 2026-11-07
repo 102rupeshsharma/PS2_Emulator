@@ -60,14 +60,11 @@ class ScreenshotCapture {
             batteryPercent = { 80 }, phoneNameControl = FakePhoneName(), motionSource = FakeMotionSource())
         rule.setContent { App(vm, AppActions({}, {}, {}, {})) }
         val host = HostDevice("00:00:00:00:00:01", "LAPTOP (mock)")
-        shoot("00_home_permission")
         rule.runOnIdle { vm.onPermissionsChanged(true); vm.onForeground(); vm.autoStart(); hid.emit(HidEvent.AppStatusChanged(true)) }
-        shoot("01_home_ready_to_pair")
         rule.runOnIdle {
             vm.onPermissionsChanged(true); vm.register()
             hid.emit(HidEvent.AppStatusChanged(true)); hid.emit(HidEvent.ConnectionChanged(host, HidStateReducer.STATE_CONNECTED))
         }
-        shoot("02_home_connected")
         rule.runOnIdle {
             vm.createLoadout("God of War"); vm.updateAppearance { it.copy(buttonScale = 1.2f) }; vm.setEditMode(false)
             vm.createLoadout("Tekken 5"); vm.updateAppearance { it.copy(buttonStyle = ButtonStyle.SIMPLE) }; vm.setEditMode(false)
@@ -112,5 +109,38 @@ class ScreenshotCapture {
         shoot("17_diagnostics")
         rule.runOnIdle { vm.navigate(Screen.CONNECTION) }
         shoot("18_connection")
+    }
+}
+
+/** The start screen is portrait since 3.3.0: rendered at a portrait phone size. */
+@RunWith(RobolectricTestRunner::class)
+@org.robolectric.annotation.GraphicsMode(org.robolectric.annotation.GraphicsMode.Mode.NATIVE)
+@Config(sdk = [34], qualifiers = "w411dp-h891dp-port-xhdpi")
+class PortraitHomeScreenshots {
+    @get:Rule val rule = createAndroidComposeRule<androidx.activity.ComponentActivity>()
+    private val out = java.io.File(System.getProperty("screenshotDir") ?: "build/screenshots")
+
+    private fun shoot(name: String) {
+        rule.waitForIdle()
+        val root = rule.activity.window.decorView.rootView
+        val bmp = Bitmap.createBitmap(root.width, root.height, Bitmap.Config.ARGB_8888)
+        root.draw(android.graphics.Canvas(bmp))
+        out.mkdirs()
+        java.io.File(out, "$name.png").outputStream().use { bmp.compress(Bitmap.CompressFormat.PNG, 100, it) }
+    }
+
+    @Test fun captureHome() {
+        assumeTrue("run with -Pscreenshots", System.getProperty("screenshotDir") != null)
+        val hid = FakeHid()
+        val laptop = HostDevice("00:00:00:00:00:01", "LAPTOP (mock)")
+        val vm = MainViewModel(hid, MutableStateFlow(BluetoothState.ENABLED), { listOf(laptop) }, DiagnosticLog(), listOf("screenshot"), { 0L },
+            batteryPercent = { 80 }, phoneNameControl = FakePhoneName())
+        rule.setContent { App(vm, AppActions({}, {}, {}, {})) }
+        rule.runOnIdle { vm.onPermissionsChanged(true); vm.onForeground(); vm.autoStart() }
+        shoot("01_home_connect")
+        rule.runOnIdle { vm.connectNow(); hid.emit(HidEvent.AppStatusChanged(true)) }
+        shoot("01b_home_connecting")
+        rule.runOnIdle { hid.emit(HidEvent.ConnectionChanged(laptop, HidStateReducer.STATE_CONNECTED)) }
+        shoot("02_home_connected")
     }
 }

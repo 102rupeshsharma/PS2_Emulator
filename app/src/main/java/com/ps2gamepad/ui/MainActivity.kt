@@ -1,6 +1,7 @@
 package com.ps2gamepad.ui
 
 import android.os.BatteryManager
+import android.content.pm.ActivityInfo
 import android.os.Bundle
 import android.os.SystemClock
 import android.util.Log
@@ -88,6 +89,10 @@ class MainActivity : ComponentActivity() {
                     else window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
                     applyPowerSaving(playing && saver)
                     applyLowLatencyTouch(playing)
+                    // 3.3.0: the start screen is portrait, the controller and all other screens landscape
+                    val wanted = if (s == Screen.HOME) ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT
+                    else ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+                    if (requestedOrientation != wanted) requestedOrientation = wanted
                 }
             }
         }

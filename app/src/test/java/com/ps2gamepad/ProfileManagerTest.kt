@@ -130,7 +130,7 @@ class ProfileManagerTest {
         // only ADDS touch buttons that send one of the existing 12 buttons; built-ins never change.
         val fields = ControllerProfile::class.java.declaredFields
             .filter { !java.lang.reflect.Modifier.isStatic(it.modifiers) }.map { it.name }
-        assertEquals(setOf("id", "name", "builtIn", "appearance", "left", "right", "placements", "extraButtons"), fields.toSet())
+        assertEquals(setOf("id", "name", "builtIn", "appearance", "left", "right", "placements", "extraButtons", "gyroAim"), fields.toSet())
     }
 
     @Test fun storeActiveFallsBackSafely() {

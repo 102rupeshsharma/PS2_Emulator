@@ -175,6 +175,40 @@ data class ExtraButton(
     }
 }
 
+/**
+ * Gyro aiming for the right stick (3.1.0): the phone's rotation SPEED drives the right stick, like
+ * gyro aiming on Steam / Switch. Off by default; switched on the controller's top bar.
+ */
+@Serializable
+data class GyroAim(
+    val enabled: Boolean = false,
+    /** Higher = less phone rotation for the same camera turn. */
+    val sensitivity: Float = 1f,
+    /**
+     * Game dead-zone fix: most games ignore stick values below ~15-25 %. Any phone movement starts
+     * at this value, so slow, small aiming still moves the camera. 0 = off.
+     */
+    val gameDeadZone: Float = 0.2f,
+    /** Up/down speed relative to left/right. */
+    val verticalScale: Float = 1f,
+    /** 0 = raw, 1 = smoothest (50 ms). */
+    val smoothing: Float = 0.3f,
+    val invertX: Boolean = false,
+    val invertY: Boolean = false,
+) {
+    fun sanitized() = copy(
+        sensitivity = sensitivity.finiteOr(1f).coerceIn(0.25f, 4f),
+        gameDeadZone = gameDeadZone.finiteOr(0.2f).coerceIn(0f, 0.4f),
+        verticalScale = verticalScale.finiteOr(1f).coerceIn(0.5f, 1.5f),
+        smoothing = smoothing.finiteOr(0.3f).coerceIn(0f, 1f),
+    )
+
+    companion object {
+        /** Phone rotation speed (°/s) that gives full stick at sensitivity 1. */
+        const val FULL_SPEED_DPS = 120f
+    }
+}
+
 @Serializable
 data class ControllerProfile(
     val id: String,
@@ -188,6 +222,8 @@ data class ControllerProfile(
     val placements: Map<ControlId, Placement> = emptyMap(),
     /** Buttons and combo buttons added by the user. */
     val extraButtons: List<ExtraButton> = emptyList(),
+    /** Gyro aiming (right stick). New field name: the old tilt-based "gyro" settings are ignored. */
+    val gyroAim: GyroAim = GyroAim(),
 ) {
     fun sanitized() = copy(
         name = name.trim().take(MAX_NAME).ifEmpty { "Profile" },
@@ -195,6 +231,7 @@ data class ControllerProfile(
         left = left.sanitized(),
         right = right.sanitized(),
         placements = placements.mapValues { it.value.sanitized() },
+        gyroAim = gyroAim.sanitized(),
         extraButtons = extraButtons.distinctBy { it.id }.filter { it.id.isNotBlank() }.take(MAX_EXTRA_BUTTONS).map { it.sanitized() },
     )
 

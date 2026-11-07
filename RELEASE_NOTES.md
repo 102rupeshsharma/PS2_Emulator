@@ -1,5 +1,32 @@
 # Release notes
 
+## 3.1.0 (versionCode 17), 2026-11-07: gyro aiming for shooters
+
+- **Gyro aiming is back, rebuilt for aiming.** The old gyro (1.3 to 2.x) mapped the phone's tilt
+  ANGLE to a stick POSITION with a few-degree dead zone. Together with the game's own stick dead
+  zone, small aiming corrections did nothing until the phone was tilted a lot (the reason it was
+  removed). The new gyro maps the phone's ROTATION SPEED to the stick, like gyro aiming on Steam /
+  Switch:
+  - turn slowly = small camera turn, stop = camera stops at once, no neutral angle to hold;
+  - **game dead-zone fix** (default 20 %): any real movement starts just past the game's inner
+    dead zone, so the game's response is linear from the first degree per second;
+  - **tiered smoothing**: only tiny jitter is smoothed, real turns pass straight through (no lag,
+    no drift after stopping);
+  - automatic gyroscope drift learning while the phone is held still; 200 Hz gyroscope;
+  - works however the phone is held (gravity-relative axes), up/down follows the top edge.
+- **Gyro ON/OFF on the controller's top bar** (saved per loadout). Settings: sensitivity, game
+  dead-zone fix, up/down speed, invert up/down, invert left/right. The right touch stick still works
+  and wins while touched.
+- Sensors run only while the controller is open with gyro ON (stopped in Edit, on other screens and
+  in the background), and the gyro part of the right stick is centred whenever they stop.
+- **Simulated play test** (GyroAimTest: a simulated hand turning the phone, a simulated shooter with a
+  20 % dead zone and 180°/s max turn): 2° tiny correction -> camera 3.2° (old tilt method: 0°);
+  3°/s slow tracking -> 4.6°; a 10° turn -> 15° whether slow or fast; camera moves at most 0.07°
+  after the phone stops; no drift at rest after the bias is learned. This found and fixed two
+  feel problems before release: lag after stopping (smoothing on big turns) and slow tracking
+  being mistaken for sensor drift.
+- Tests: 257 automated tests (255 passed, 2 skipped). Not yet checked on the phone.
+
 ## 3.0.0 (versionCode 16), 2026-11-07: simple Bluetooth controller, button styles, combo buttons
 
 - **Simplified:** gyro aiming and PC Gaming Mode (Bluetooth keyboard + mouse, gyro mouse, PC
